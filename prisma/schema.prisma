@@ -1,0 +1,530 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  CHECK_IN
+  VOTING
+}
+
+enum MemberRole {
+  ATTENDEE
+  VIP_ATTENDEE
+  STAFF
+  SPONSOR
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+  updatedAt    DateTime  @updatedAt
+  role         AdminRole @default(ADMIN)
+  isActive     Boolean   @default(true)
+}
+
+model Member {
+  id                     String                        @id @default(cuid())
+  firstName              String
+  lastName               String
+  preferredName          String?
+  email                  String                        @unique
+  phone                  String?
+  addressLine1           String?
+  city                   String?
+  state                  String?
+  country                String                        @default("USA")
+  postalCode             String?
+  firstYearAttended      Int                           @default(2025)
+  notes                  String?
+  createdAt              DateTime                      @default(now())
+  updatedAt              DateTime                      @updatedAt
+  archivedAt             DateTime?
+  promotionalEmailOptOut Boolean                       @default(false)
+  unsubscribeToken       String?                       @unique
+  emailLogs              EmailLog[]
+  registrations          EventRegistration[]
+  volunteerAssignments   VolunteerAssignment[]
+  volunteerProfile       VolunteerProfile?
+  participationRecords   ParticipationRecord[]
+  ticketPurchases        TicketPurchase[]
+  externalContactLists   ExternalContactListMember[]
+  sponsorFulfillments    SponsorFulfillment[]
+  emailCampaignQueue     EmailCampaignRecipientQueue[]
+  role                   MemberRole                    @default(ATTENDEE)
+}
+
+enum ParticipationType {
+  ATTENDEE
+  VOLUNTEER
+}
+
+enum OperationsStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model ParticipationRecord {
+  id        String            @id @default(cuid())
+  memberId  String
+  member    Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  year      Int
+  type      ParticipationType
+  source    String?
+  notes     String?
+  createdAt DateTime          @default(now())
+
+  @@unique([memberId, year, type])
+  @@index([year, type])
+}
+
+model Event {
+  id              String              @id @default(cuid())
+  title           String
+  description     String?
+  location        String?
+  startsAt        DateTime
+  endsAt          DateTime?
+  capacity        Int?
+  status          String              @default("Draft")
+  flyerImageUrl   String?
+  sourceUrl       String?
+  externalKey     String?             @unique
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  archivedAt      DateTime?
+  cancelledAt     DateTime?
+  registrations   EventRegistration[]
+  runSheetItems   EventRunSheetItem[]
+  staffTasks      EventStaffTask[]
+  volunteerShifts VolunteerShift[]
+  crewMembers     EventCrewMember[]
+  displayOrder    Int                 @default(0)
+}
+
+model EventRunSheetItem {
+  id        String           @id @default(cuid())
+  eventId   String
+  sortOrder Int              @default(0)
+  time      DateTime?
+  title     String
+  owner     String?
+  location  String?
+  notes     String?
+  status    OperationsStatus @default(NOT_STARTED)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, sortOrder])
+  @@index([eventId, time])
+}
+
+model EventStaffTask {
+  id         String       @id @default(cuid())
+  eventId    String
+  title      String
+  assignedTo String?
+  dueAt      DateTime?
+  priority   TaskPriority @default(MEDIUM)
+  status     TaskStatus   @default(TODO)
+  notes      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  event      Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, status])
+  @@index([eventId, dueAt])
+}
+
+model OperationsContact {
+  id         String    @id @default(cuid())
+  name       String
+  company    String?
+  role       String?
+  phone      String?
+  email      String?
+  websiteUrl String?
+  notes      String?
+  category   String?
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  isCrew     Boolean   @default(false)
+
+  @@index([archivedAt])
+  @@index([category])
+}
+
+model OperationsSupply {
+  id         String    @id @default(cuid())
+  name       String
+  quantity   String?
+  owner      String?
+  category   String?
+  packed     Boolean   @default(false)
+  delivered  Boolean   @default(false)
+  notes      String?
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([archivedAt])
+  @@index([category])
+}
+
+model EventRegistration {
+  id        String   @id @default(cuid())
+  memberId  String
+  eventId   String
+  status    String   @default("Registered")
+  checkedIn Boolean  @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, eventId])
+}
+
+model VolunteerProfile {
+  id               String    @id @default(cuid())
+  memberId         String    @unique
+  status           String    @default("Interested")
+  preferredRoles   String?
+  availability     String?
+  experience       String?
+  emergencyName    String?
+  emergencyPhone   String?
+  consentToContact Boolean   @default(true)
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  archivedAt       DateTime?
+  shirtSize        String?
+  member           Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model VolunteerShift {
+  id          String                @id @default(cuid())
+  eventId     String
+  title       String
+  description String?
+  location    String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  neededCount Int                   @default(1)
+  status      String                @default("Open")
+  notes       String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  archivedAt  DateTime?
+  cancelledAt DateTime?
+  assignments VolunteerAssignment[]
+  event       Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model VolunteerAssignment {
+  id             String         @id @default(cuid())
+  shiftId        String
+  memberId       String
+  status         String         @default("Assigned")
+  checkedIn      Boolean        @default(false)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  member         Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  shift          VolunteerShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  shirtGiven     Boolean        @default(false)
+  reminderSentAt DateTime?
+
+  @@unique([shiftId, memberId])
+}
+
+model EmailCampaign {
+  id               String                        @id @default(cuid())
+  subject          String
+  body             String
+  content          Json?
+  fromEmail        String?
+  status           String                        @default("Draft")
+  sentAt           DateTime?
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @updatedAt
+  title            String?
+  previewText      String?
+  recipientType    String                        @default("all_contacts")
+  recipientEventId String?
+  manualEmails     String?
+  audienceConfig   Json?
+  ctaButtonText    String?
+  ctaUrl           String?
+  recipientCount   Int?                          @default(0)
+  sentCount        Int?                          @default(0)
+  failedCount      Int?                          @default(0)
+  logs             EmailLog[]
+  queues           EmailCampaignRecipientQueue[]
+}
+
+model EmailCampaignRecipientQueue {
+  id           String    @id @default(cuid())
+  campaignId   String
+  memberId     String
+  email        String
+  name         String?
+  source       String?
+  status       String    @default("Scheduled")
+  scheduledFor DateTime
+  batchNumber  Int
+  sentAt       DateTime?
+  error        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  campaign EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  member   Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, email])
+  @@index([status, scheduledFor])
+  @@index([campaignId, status])
+  @@index([scheduledFor, batchNumber])
+}
+
+model EmailLog {
+  id         String         @id @default(cuid())
+  campaignId String?
+  memberId   String
+  status     String
+  error      String?
+  sentAt     DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+  campaign   EmailCampaign? @relation(fields: [campaignId], references: [id])
+  member     Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([campaignId])
+}
+
+model EventCrewMember {
+  id        String   @id @default(cuid())
+  eventId   String
+  position  String
+  name      String
+  phone     String?
+  email     String?
+  notes     String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, sortOrder])
+}
+
+model TicketSpiceWebhookLog {
+  id              String    @id @default(cuid())
+  eventType       String?
+  headersJson     Json?
+  queryParamsJson Json?
+  payloadJson     Json?
+  rawBody         String?
+  receivedAt      DateTime  @default(now())
+  processedAt     DateTime?
+  status          String    @default("captured")
+  error           String?
+}
+
+model ExternalContactList {
+  id          String                      @id @default(cuid())
+  label       String
+  description String?
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+  members     ExternalContactListMember[]
+}
+
+model ExternalContactListMember {
+  id                    String   @id @default(cuid())
+  externalContactListId String
+  memberId              String
+  sourceLabel           String?
+  importedAt            DateTime @default(now())
+
+  member              Member              @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  externalContactList ExternalContactList @relation(fields: [externalContactListId], references: [id], onDelete: Cascade)
+
+  @@unique([externalContactListId, memberId])
+}
+
+model TicketPurchase {
+  id                 String    @id @default(cuid())
+  memberId           String
+  member             Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  externalSource     String    @default("TicketSpice")
+  externalOrderId    String
+  externalLineItemId String
+  orderNumber        String?
+  productName        String
+  productCategory    String?
+  purchaseType       String?
+  accessLevel        String?
+  passCount          Int       @default(1)
+  unclaimedPassCount Int       @default(0)
+  vipAccess          Boolean   @default(false)
+  priorityCheckIn    Boolean   @default(false)
+  paymentStatus      String?
+  amountPaidCents    Int?
+  purchasedAt        DateTime?
+  shirtSize          String?
+  pinIncluded        Boolean   @default(false)
+  pinQuantity        Int       @default(0)
+  sponsorTier        String?
+  sponsorType        String?
+  sponsorNeedsReview Boolean   @default(false)
+  rawProductJson     Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([externalSource, externalOrderId, externalLineItemId])
+  @@index([memberId])
+  @@index([externalSource, externalOrderId])
+}
+
+model SponsorFulfillment {
+  id       String @id @default(cuid())
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  eventYear   Int     @default(2026)
+  sponsorTier String
+  displayName String?
+  isAnonymous Boolean @default(false)
+
+  accessLevel       String?
+  packageCount      Int       @default(1)
+  wristbandCount    Int       @default(1)
+  wristbandsGivenAt DateTime?
+
+  shirtCount    Int       @default(0)
+  shirtSizes    Json?
+  shirtsGivenAt DateTime?
+
+  pinCount    Int       @default(0)
+  pinsGivenAt DateTime?
+
+  giftIncluded    Boolean   @default(false)
+  giftDescription String?
+  hoodieSize      String?
+  giftGivenAt     DateTime?
+
+  websiteRecognition         Boolean @default(false)
+  socialRecognition          Boolean @default(false)
+  closingCeremonyRecognition Boolean @default(false)
+  commemorativePhoto         Boolean @default(false)
+  magazineAdSize             String?
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([memberId, eventYear])
+  @@index([eventYear, sponsorTier])
+}
+
+model ContestVotingSession {
+  id        String   @id @default(cuid())
+  title     String
+  isOpen    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contestants ContestContestant[]
+  votes       ContestVote[]
+}
+
+model ContestContestant {
+  id           String   @id @default(cuid())
+  sessionId    String
+  name         String
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  session ContestVotingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  votes   ContestVote[]
+}
+
+model ContestVote {
+  id           String   @id @default(cuid())
+  sessionId    String
+  contestantId String
+  source       String?
+  createdAt    DateTime @default(now())
+
+  session    ContestVotingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  contestant ContestContestant    @relation(fields: [contestantId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([contestantId])
+  @@index([createdAt])
+}
+
+// Snapshots written by src/lib/contest-voting-archive.ts via raw SQL. This
+// table already existed in production; it's declared here so Prisma's
+// migrate/diff tooling stops seeing it as drift. Prisma won't manage writes
+// to it (that file still uses $executeRaw/$queryRaw), this is schema-only.
+model ContestVotingResultArchive {
+  id             String   @id @default(cuid())
+  sessionId      String
+  title          String
+  totalVotes     Int
+  winnerName     String?
+  winnerVotes    Int?
+  snapshotJson   Json?
+  createdByEmail String?
+  createdByName  String?
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+// Generic rate-limit / lockout tracking. One row per attempt (login or
+// public-form submission); callers count recent rows for a given `key`
+// within a time window rather than us maintaining running counters.
+model RateLimitAttempt {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}

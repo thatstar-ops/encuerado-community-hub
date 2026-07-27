@@ -1,0 +1,34 @@
+// Single source of truth for the fixed raffle links. Each key is the URL
+// slug (/raffle/<slug>) and each value is the display name used for the
+// page heading, the ExternalContactList label, and the entry sourceLabel.
+//
+// All raffles give away the same prize (an Encuerado Weekend Pass) - only
+// the event they're collected at differs. Add a new raffle by adding a
+// line here; no other code changes needed.
+export const RAFFLES: Record<string, string> = {
+  'dore-alley': 'Dore Alley',
+  'carne-asada': 'Carne Asada',
+  contramundo: 'ContraMundo',
+  machete: 'Machete',
+  'mr-rough-trade-gear-contest': 'Mr Rough Trade Gear Contest',
+}
+
+export type RaffleId = keyof typeof RAFFLES
+
+export function isValidRaffleId(value: string): value is RaffleId {
+  return Object.prototype.hasOwnProperty.call(RAFFLES, value)
+}
+
+export function raffleLabel(raffleId: string): string {
+  return RAFFLES[raffleId] || raffleId
+}
+
+// The ExternalContactList each raffle's entries are grouped under. Giving
+// each raffle its own list (rather than one shared list) is what makes
+// "one entry per raffle" work for free - the existing unique(listId,
+// memberId) constraint on ExternalContactListMember naturally allows the
+// same person into up to 3 lists (one per raffle) while still blocking a
+// second entry into the same raffle's list.
+export function raffleListLabel(raffleId: string): string {
+  return `Raffle 2026 - ${raffleLabel(raffleId)}`
+}
