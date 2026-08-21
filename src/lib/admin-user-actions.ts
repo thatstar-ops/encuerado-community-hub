@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import bcrypt from 'bcryptjs'
 import { requireSuperAdmin } from '@/lib/auth'
 
-const ALLOWED_ROLES = ['ADMIN', 'SUPER_ADMIN', 'CHECK_IN'] as const
+const ALLOWED_ROLES = ['ADMIN', 'SUPER_ADMIN', 'CHECK_IN', 'VOTING'] as const
 
 function validateRole(role: string) {
   if (!ALLOWED_ROLES.includes(role as any)) {

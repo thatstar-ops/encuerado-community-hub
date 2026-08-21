@@ -39,6 +39,7 @@ async function updateEvent(eventId: string, formData: FormData) {
   const capacityRaw = String(formData.get('capacity') || '').trim()
   const status = String(formData.get('status') || 'Draft').trim()
   const flyerImageUrl = cleanOptionalUrl(formData.get('flyerImageUrl'))
+  const selfRegistrationEnabled = formData.get('selfRegistrationEnabled') === 'on'
 
   if (!title || !startsAt) {
     throw new Error('Title and start date/time are required.')
@@ -55,6 +56,7 @@ async function updateEvent(eventId: string, formData: FormData) {
       capacity: capacityRaw ? Number(capacityRaw) : null,
       status,
       flyerImageUrl,
+      selfRegistrationEnabled,
     },
   })
 
@@ -88,6 +90,7 @@ export default async function EditEventPage({
       capacity: true,
       status: true,
       flyerImageUrl: true,
+      selfRegistrationEnabled: true,
     },
   })
 
@@ -192,6 +195,25 @@ export default async function EditEventPage({
                 </select>
               </label>
             </div>
+
+            <label className="flex items-start gap-3 rounded-lg border border-[#3A1215] bg-[#151111] p-4">
+              <input
+                name="selfRegistrationEnabled"
+                type="checkbox"
+                defaultChecked={event.selfRegistrationEnabled}
+                className="mt-1 h-5 w-5"
+              />
+              <span>
+                <span className="block text-base font-bold text-white">
+                  Allow free public self-registration
+                </span>
+                <span className="mt-1 block text-sm text-[#8F8F8F]">
+                  Turns on the public signup page (no login, no payment) for this event. Leave
+                  this OFF for anything ticketed through Stripe/TicketSpice - only turn it on for
+                  real free RSVP-style events. Off by default for every event.
+                </span>
+              </span>
+            </label>
 
             <div className="flex flex-wrap gap-3">
               <button

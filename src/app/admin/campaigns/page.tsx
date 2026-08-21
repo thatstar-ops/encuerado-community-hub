@@ -224,10 +224,21 @@ function DuplicateCampaignButton({ campaignId }: { campaignId: string }) {
   )
 }
 
-export default async function CampaignsPage() {
+const CAMPAIGN_STATUS_FILTERS = ['Draft', 'Scheduled', 'Sending', 'Sent', 'Failed']
+
+export default async function CampaignsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ status?: string }>
+}) {
   await requireNonCheckInAdmin()
 
-  const [campaigns, events, externalContactLists, nextAvailableCampaignDate] =
+  const params = searchParams ? await searchParams : {}
+  const statusFilter = CAMPAIGN_STATUS_FILTERS.includes(String(params.status || ''))
+    ? String(params.status)
+    : null
+
+  const [allCampaigns, events, externalContactLists, nextAvailableCampaignDate] =
     await Promise.all([
       prisma.emailCampaign.findMany({
         orderBy: { createdAt: 'desc' },
@@ -265,8 +276,11 @@ export default async function CampaignsPage() {
   const eventLabels = new Map(events.map((event) => [event.id, event.title]))
   const listLabels = new Map(externalContactLists.map((list) => [list.id, list.label]))
 
+  // The summary cards below (Due Now / Scheduled / Sending / Sent / Failed)
+  // always reflect ALL campaigns regardless of the status filter - they're
+  // an overall queue-health snapshot, not a count of what's in the table.
   const now = new Date()
-  const allQueues = campaigns.flatMap((campaign) => campaign.queues)
+  const allQueues = allCampaigns.flatMap((campaign) => campaign.queues)
   const dueScheduledCount = allQueues.filter(
     (queue) => queue.status === 'Scheduled' && queue.scheduledFor <= now
   ).length
@@ -274,6 +288,10 @@ export default async function CampaignsPage() {
   const sendingQueueCount = allQueues.filter((queue) => queue.status === 'Sending').length
   const sentQueueCount = allQueues.filter((queue) => queue.status === 'Sent').length
   const failedQueueCount = allQueues.filter((queue) => queue.status === 'Failed').length
+
+  const campaigns = statusFilter
+    ? allCampaigns.filter((campaign) => campaign.status === statusFilter)
+    : allCampaigns
 
   return (
     <main className="min-h-screen bg-black p-8 text-white">
@@ -331,9 +349,29 @@ export default async function CampaignsPage() {
           />
         </div>
 
+        <div className="mb-4 flex flex-wrap gap-3">
+          <Link
+            href="/admin/campaigns"
+            className={!statusFilter ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#3A1215] px-4 py-2 text-sm font-bold text-white hover:border-[#B11218] hover:text-[#B11218]'}
+          >
+            All
+          </Link>
+          {CAMPAIGN_STATUS_FILTERS.map((value) => (
+            <Link
+              key={value}
+              href={`/admin/campaigns?status=${value}`}
+              className={statusFilter === value ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#3A1215] px-4 py-2 text-sm font-bold text-white hover:border-[#B11218] hover:text-[#B11218]'}
+            >
+              {value}
+            </Link>
+          ))}
+        </div>
+
         <div className="rounded-xl border border-[#2A0E10] bg-[#0B0B0B] p-6">
           {campaigns.length === 0 ? (
-            <p className="text-[#B7B7B7]">No campaigns yet.</p>
+            <p className="text-[#B7B7B7]">
+              {statusFilter ? `No ${statusFilter.toLowerCase()} campaigns.` : 'No campaigns yet.'}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">

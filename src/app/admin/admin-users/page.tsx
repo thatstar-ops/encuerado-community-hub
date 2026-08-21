@@ -37,6 +37,7 @@ export default async function AdminUsersPage() {
             <Link href="/api/admin/contacts/export" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Full Contact Export</Link>
             <Link href="/admin/sponsors/new" className="rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white hover:bg-[#D11A22]">Add Sponsor / Attendee (Manual)</Link>
             <Link href="/admin/members/merge" className="rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white hover:bg-[#D11A22]">Merge Duplicate Members</Link>
+            <Link href="/admin/volunteer-bible" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Print Volunteer Bible</Link>
           </div>
         </div>
 

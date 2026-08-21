@@ -24,6 +24,21 @@ function optionalText(formData: FormData, name: string, max: number) {
   return value || null
 }
 
+// Optional amount actually collected for a door/manual sale (Weekend Pass,
+// VIP Pass, Individual Event). Blank = comp/free entry, no amountPaidCents
+// set - matches how TicketSpice-sourced free/test orders are excluded from
+// money tallies. Present so cash door sales actually show up in
+// AdminMoneyTallies instead of silently counting as $0.
+function optionalDollarsToCents(formData: FormData, name: string): number | null {
+  const raw = formData.get(name)
+  if (raw === null || raw === '') return null
+
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value <= 0) return null
+
+  return Math.round(value * 100)
+}
+
 function requiredEmail(formData: FormData, name: string) {
   const value = String(formData.get(name) || '').trim().toLowerCase()
   if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
@@ -240,6 +255,7 @@ export async function createManualEntry(formData: FormData) {
         passCount: benefits.packageCount,
         vipAccess: benefits.sponsorTier === 'EL MERO MERO',
         priorityCheckIn: benefits.sponsorTier !== 'Sponsor - Needs Review',
+        paymentStatus: 'Paid',
         amountPaidCents: amountCents,
         purchasedAt: new Date(),
         sponsorTier: benefits.sponsorTier,
@@ -264,6 +280,7 @@ export async function createManualEntry(formData: FormData) {
   if (entryType === 'weekend_pass' || entryType === 'vip_pass') {
     const quantity = Math.max(1, Number(formData.get('quantity')) || 1)
     const isVip = entryType === 'vip_pass'
+    const collectedCents = optionalDollarsToCents(formData, 'collectedAmountDollars')
 
     const missing = await registerForEventTitles(
       member.id,
@@ -285,6 +302,8 @@ export async function createManualEntry(formData: FormData) {
         passCount: quantity,
         vipAccess: isVip,
         priorityCheckIn: isVip,
+        paymentStatus: 'Paid',
+        amountPaidCents: collectedCents,
         purchasedAt: new Date(),
       },
     })
@@ -313,6 +332,7 @@ export async function createManualEntry(formData: FormData) {
   if (!event) redirectWithNotice('blocked', 'Selected event could not be found.')
 
   const quantity = Math.max(1, Number(formData.get('quantity')) || 1)
+  const collectedCents = optionalDollarsToCents(formData, 'collectedAmountDollars')
 
   await registerForEventTitles(member.id, [event.title], 'Individual Ticket', quantity)
 
@@ -327,6 +347,8 @@ export async function createManualEntry(formData: FormData) {
       purchaseType: 'Individual Ticket',
       accessLevel: 'Event',
       passCount: quantity,
+      paymentStatus: 'Paid',
+      amountPaidCents: collectedCents,
       purchasedAt: new Date(),
     },
   })

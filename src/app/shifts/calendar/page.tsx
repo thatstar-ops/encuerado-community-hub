@@ -124,8 +124,10 @@ export default async function ShiftCalendarPage({
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link href="/shifts" className="text-base font-semibold text-[#B11218] hover:text-[#D11A22]">← Back to shifts</Link>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             {!isCheckIn && <Link href="/shifts/new" className="rounded-lg bg-[#B11218] px-5 py-3 text-base font-bold text-white hover:bg-[#D11A22]">Add Shift</Link>}
+            {!isCheckIn && <Link href="/admin/volunteer-roles" className="rounded-lg border border-[#B11218] px-5 py-3 text-base font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Manage Roles</Link>}
+            {!isCheckIn && <Link href="/admin/volunteer-shift-reminders" className="rounded-lg border border-[#B11218] px-5 py-3 text-base font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Reminder Email</Link>}
             <Link href="/volunteer-shifts" className="rounded-lg border border-[#B11218] px-5 py-3 text-base font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Public Signup View</Link>
           </div>
         </div>

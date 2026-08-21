@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { RAFFLES } from '@/lib/raffles'
+import { RAFFLES, isRaffleClosed } from '@/lib/raffles'
 
 export default function RaffleChooserPage() {
   const raffleEntries = Object.entries(RAFFLES)
@@ -28,15 +28,31 @@ export default function RaffleChooserPage() {
           </p>
 
           <div className="mt-8 grid gap-4">
-            {raffleEntries.map(([slug, label]) => (
-              <Link
-                key={slug}
-                href={`/raffle/${slug}`}
-                className="rounded-xl border border-[#2A0E10] bg-black p-6 text-center text-xl font-black uppercase tracking-wide text-white transition-colors hover:border-[#B11218] hover:bg-[#151111]"
-              >
-                {label}
-              </Link>
-            ))}
+            {raffleEntries.map(([slug, label]) => {
+              const closed = isRaffleClosed(slug)
+
+              if (closed) {
+                return (
+                  <div
+                    key={slug}
+                    className="flex items-center justify-between rounded-xl border border-[#2A0E10] bg-black p-6 text-xl font-black uppercase tracking-wide text-[#777777]"
+                  >
+                    <span>{label}</span>
+                    <span className="text-sm tracking-wide text-[#777777]">Closed</span>
+                  </div>
+                )
+              }
+
+              return (
+                <Link
+                  key={slug}
+                  href={`/raffle/${slug}`}
+                  className="rounded-xl border border-[#2A0E10] bg-black p-6 text-center text-xl font-black uppercase tracking-wide text-white transition-colors hover:border-[#B11218] hover:bg-[#151111]"
+                >
+                  {label}
+                </Link>
+              )
+            })}
           </div>
         </div>
       </div>

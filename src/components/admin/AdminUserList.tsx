@@ -74,6 +74,7 @@ export default function AdminUserList({
               <option value="ADMIN">Admin</option>
               <option value="SUPER_ADMIN">Super Admin</option>
               <option value="CHECK_IN">Check-in Admin</option>
+              <option value="VOTING">Voting Booth</option>
             </select>
             <button type="submit" className="rounded-lg bg-[#B11218] px-4 py-2 font-bold text-white hover:bg-[#D11A22]">Create</button>
           </form>
@@ -111,7 +112,8 @@ export default function AdminUserList({
                       <select name="role" defaultValue={admin.role} className="rounded border border-[#3A1215] bg-[#0B0B0B] p-1 text-xs text-white">
                         <option value="ADMIN">Admin</option>
                         <option value="SUPER_ADMIN">Super Admin</option>
-              <option value="CHECK_IN">Check-in Admin</option>
+                        <option value="CHECK_IN">Check-in Admin</option>
+                        <option value="VOTING">Voting Booth</option>
                       </select>
                       <button type="submit" className="rounded bg-[#B11218] px-2 py-1 text-xs font-bold text-white hover:bg-[#D11A22]">Save</button>
                       <button type="button" onClick={() => setEditingId(null)} className="rounded bg-[#3A1215] px-2 py-1 text-xs text-white hover:bg-slate-500">Cancel</button>

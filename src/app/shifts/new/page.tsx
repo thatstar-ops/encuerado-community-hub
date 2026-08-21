@@ -14,8 +14,10 @@ async function createShift(formData: FormData) {
   }
 
   const eventId = String(formData.get('eventId') || '').trim()
+  const roleId = String(formData.get('roleId') || '').trim()
   const title = String(formData.get('title') || '').trim()
   const description = String(formData.get('description') || '').trim()
+  const location = String(formData.get('location') || '').trim()
   const startsAt = String(formData.get('startsAt') || '').trim()
   const endsAt = String(formData.get('endsAt') || '').trim()
   const neededCountRaw = String(formData.get('neededCount') || '1').trim()
@@ -24,6 +26,11 @@ async function createShift(formData: FormData) {
 
   if (!eventId || !title || !startsAt) {
     throw new Error('Event, title, and start time are required.')
+  }
+
+  if (roleId) {
+    const role = await prisma.volunteerRole.findUnique({ where: { id: roleId }, select: { id: true } })
+    if (!role) throw new Error('Choose a valid role.')
   }
 
   // Fetch event to validate it's active and get its location
@@ -51,10 +58,13 @@ async function createShift(formData: FormData) {
   await prisma.volunteerShift.create({
     data: {
       eventId,
+      roleId: roleId || null,
       title,
       description: description || null,
-      // Use event location instead of separate input
-      location: event.location || null,
+      // Defaults to the event's location; an admin can type a different
+      // address here to override it for just this shift (e.g. an offsite
+      // location or a different building on the venue).
+      location: location || event.location || null,
       startsAt: parsedStartsAt,
       endsAt: parsedEndsAt,
       neededCount: Number(neededCountRaw) || 1,
@@ -100,6 +110,11 @@ export default async function NewShiftPage({
     },
   })
 
+  const roles = await prisma.volunteerRole.findMany({
+    where: { archivedAt: null },
+    orderBy: { title: 'asc' },
+  })
+
   return (
     <main className="min-h-screen bg-black p-8 text-white">
       <div className="mx-auto max-w-3xl">
@@ -142,8 +157,43 @@ export default async function NewShiftPage({
             </label>
 
             <label className="grid gap-2">
+              <span className="text-base font-bold text-white">Location / Address</span>
+              <input
+                name="location"
+                placeholder="Leave blank to use the event's location"
+                className={inputClass}
+              />
+              <span className="text-sm text-[#8F8F8F]">
+                Defaults to the selected event&apos;s location. Type an address here to override it
+                for just this shift (e.g. a different building or an offsite location).
+              </span>
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-base font-bold text-white">Role (job description)</span>
+              <select name="roleId" defaultValue="" className={inputClass}>
+                <option value="">No role — use the description field below only</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.title}
+                  </option>
+                ))}
+              </select>
+              <span className="text-sm text-[#8F8F8F]">
+                Linking a role includes its job description in the shift reminder email.{' '}
+                <Link href="/admin/volunteer-roles" className="text-[#B11218] hover:underline">
+                  Manage roles →
+                </Link>
+              </span>
+            </label>
+
+            <label className="grid gap-2">
               <span className="text-base font-bold text-white">Description</span>
               <textarea name="description" rows={3} className={inputClass} />
+              <span className="text-sm text-[#8F8F8F]">
+                Shift-specific notes only (not included in reminder emails). Use a Role above for
+                the reusable job description.
+              </span>
             </label>
 
             {/* Location input removed – location is now inherited from event */}

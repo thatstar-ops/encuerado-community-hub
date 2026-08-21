@@ -159,6 +159,15 @@ export default async function NewSponsorOrAttendeePage({
 
               <label className="grid gap-2">
                 <span className="text-base font-bold text-white">
+                  Amount collected (dollars) — only for Weekend Pass / VIP Pass / Individual
+                  Event. Leave blank for comps/free entries. This is what shows up in the money
+                  tallies, so if cash changed hands, enter it here.
+                </span>
+                <input name="collectedAmountDollars" type="number" min="0" step="1" className={inputClass} />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-base font-bold text-white">
                   Event — only for Individual Event
                 </span>
                 <select name="eventId" className={inputClass} defaultValue="">

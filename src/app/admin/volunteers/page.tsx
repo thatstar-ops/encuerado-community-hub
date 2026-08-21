@@ -348,23 +348,26 @@ export default async function AdminVolunteersPage({
             <div className="mt-3 text-base font-medium text-[#B7B7B7]">All volunteer profiles: {totalVolunteers}</div>
           </Link>
 
-          <Link href="/shifts" className="rounded-xl border border-[#2A0E10] bg-[#0B0B0B] p-5 hover:border-[#B11218] hover:bg-[#151111]">
+          <Link href="/shifts?needs=1" className="rounded-xl border border-[#2A0E10] bg-[#0B0B0B] p-5 hover:border-[#B11218] hover:bg-[#151111]">
             <div className="text-xl font-black uppercase tracking-wide text-[#B11218]">Shifts to Fill</div>
             <div className="mt-3 text-5xl font-extrabold text-white">{openVolunteerSlotsToFill}</div>
             <div className="mt-3 text-base font-medium text-[#B7B7B7]">{activeAssignments} of {totalVolunteerSlotsNeeded} slots assigned</div>
           </Link>
 
-          <Link href="/shifts" className="rounded-xl border border-[#2A0E10] bg-[#0B0B0B] p-5 hover:border-[#B11218] hover:bg-[#151111]">
+          <Link href="/shifts?shiftStatus=Open" className="rounded-xl border border-[#2A0E10] bg-[#0B0B0B] p-5 hover:border-[#B11218] hover:bg-[#151111]">
             <div className="text-xl font-black uppercase tracking-wide text-[#B11218]">Open Shifts</div>
             <div className="mt-3 text-5xl font-extrabold text-white">{openShifts}</div>
             <div className="mt-3 text-base font-medium text-[#B7B7B7]">Shift records still open</div>
           </Link>
 
-          <Link href="/admin/volunteers" className="rounded-xl border border-[#2A0E10] bg-[#0B0B0B] p-5 hover:border-[#B11218] hover:bg-[#151111]">
+          {/* Not a Link: there's no single filtered view of "all active
+              assignments across every shift" to send someone to - assignment
+              detail lives per-shift on /shifts. */}
+          <div className="rounded-xl border border-[#2A0E10] bg-[#0B0B0B] p-5">
             <div className="text-xl font-black uppercase tracking-wide text-[#B11218]">Active Assignments</div>
             <div className="mt-3 text-5xl font-extrabold text-white">{activeAssignments}</div>
             <div className="mt-3 text-base font-medium text-[#B7B7B7]">Checked in: {checkedInActiveAssignments}</div>
-          </Link>
+          </div>
         </div>
 
         <div className="mt-8 rounded-xl border border-[#2A0E10] bg-[#0B0B0B] p-6">

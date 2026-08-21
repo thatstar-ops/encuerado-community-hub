@@ -112,6 +112,11 @@ model Event {
   endsAt          DateTime?
   capacity        Int?
   status          String              @default("Draft")
+  // Defaults to false on purpose: most events here are paid (ticketed
+  // through Stripe/TicketSpice) and must NOT be reachable through the free
+  // public self-registration form. Only flip this on per-event, for actual
+  // free RSVP-style events (e.g. the VIIV presentation).
+  selfRegistrationEnabled Boolean     @default(false)
   flyerImageUrl   String?
   sourceUrl       String?
   externalKey     String?             @unique
@@ -231,9 +236,26 @@ model VolunteerProfile {
   member           Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
+// A reusable job description, shared across any number of shifts (e.g.
+// "Check-in Desk", "Bar Back", "Setup Crew"). Defined once here so editing a
+// role's description updates every shift that uses it, and so the shift
+// reminder email can include the role's description automatically.
+model VolunteerRole {
+  id          String           @id @default(cuid())
+  title       String
+  description String
+  archivedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  shifts      VolunteerShift[]
+
+  @@index([archivedAt])
+}
+
 model VolunteerShift {
   id          String                @id @default(cuid())
   eventId     String
+  roleId      String?
   title       String
   description String?
   location    String?
@@ -248,6 +270,9 @@ model VolunteerShift {
   cancelledAt DateTime?
   assignments VolunteerAssignment[]
   event       Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  role        VolunteerRole?        @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@index([roleId])
 }
 
 model VolunteerAssignment {
@@ -263,6 +288,7 @@ model VolunteerAssignment {
   shift          VolunteerShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   shirtGiven     Boolean        @default(false)
   reminderSentAt DateTime?
+  secondReminderSentAt DateTime?
 
   @@unique([shiftId, memberId])
 }
@@ -322,12 +348,20 @@ model EmailLog {
   memberId   String
   status     String
   error      String?
+  // Which code path sent this: 'ShiftReminder', 'RegistrationConfirmation',
+  // 'Campaign', etc. Campaign sends already have campaignId to identify
+  // them, but shift reminders and registration confirmations don't - this
+  // is what makes it possible to filter "just shift reminder sends" on
+  // /admin/volunteer-shift-reminders. Nullable because rows written before
+  // this field existed won't have it set.
+  source     String?
   sentAt     DateTime       @default(now())
   createdAt  DateTime       @default(now())
   campaign   EmailCampaign? @relation(fields: [campaignId], references: [id])
   member     Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([memberId])
+  @@index([source])
   @@index([campaignId])
 }
 
@@ -359,6 +393,25 @@ model TicketSpiceWebhookLog {
   processedAt     DateTime?
   status          String    @default("captured")
   error           String?
+}
+
+// Mirrors TicketSpiceWebhookLog exactly, but for Stripe events. Kept as a
+// separate model (rather than reusing TicketSpiceWebhookLog) since the two
+// platforms' payload shapes have nothing in common - separate tables keep
+// each platform's admin review/reprocessing tooling independent and avoid
+// conflating two very different event schemas in one place.
+model StripeWebhookLog {
+  id                String    @id @default(cuid())
+  stripeEventId     String?   @unique
+  eventType         String?
+  headersJson       Json?
+  payloadJson       Json?
+  lineItemsJson     Json?
+  rawBody           String?
+  receivedAt        DateTime  @default(now())
+  processedAt       DateTime?
+  status            String    @default("captured")
+  error             String?
 }
 
 model ExternalContactList {
@@ -527,4 +580,22 @@ model RateLimitAttempt {
   createdAt DateTime @default(now())
 
   @@index([key, createdAt])
+}
+
+// Singleton settings row for the "your shift is coming up" volunteer
+// reminder email (see src/lib/volunteer-reminders.ts). There is always
+// exactly one row; the app creates it with sensible defaults on first read
+// if it's missing (see getShiftReminderSettings()).
+model ShiftReminderSettings {
+  id       String @id @default(cuid())
+  // Two fixed automatic touchpoints per assignment: an early heads-up and a
+  // final day-of/day-before nudge. Each is tracked independently on
+  // VolunteerAssignment (reminderSentAt / secondReminderSentAt) so an
+  // assignment can get both without either suppressing the other.
+  daysBefore       Int      @default(7)
+  secondDaysBefore Int      @default(1)
+  subjectTemplate  String
+  bodyTemplate     String
+  updatedAt        DateTime @updatedAt
+  updatedByEmail   String?
 }

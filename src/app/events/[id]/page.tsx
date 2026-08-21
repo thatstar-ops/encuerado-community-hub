@@ -347,6 +347,58 @@ export default async function EventDetailPage({
 
           {admin && (
             <div className="mt-8 rounded-xl border border-[#2A0E10] bg-[#151111] p-5">
+              <h2 className="text-2xl font-bold text-white">Public Signup Page</h2>
+
+              {event.selfRegistrationEnabled ? (
+                <>
+                  <p className="mt-2 text-[#B7B7B7]">
+                    <span className="font-bold text-[#4ADE80]">Enabled</span> - self-service
+                    registration form for this event, no admin login or payment required.{' '}
+                    {event.capacity
+                      ? `Closes automatically once ${event.capacity} people register.`
+                      : 'No capacity set, so it stays open to everyone.'}
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <code className="rounded-lg border border-[#3A1215] bg-black px-4 py-3 text-sm text-white">
+                      /events/{event.id}/public-register
+                    </code>
+                    <Link
+                      href={`/events/${event.id}/public-register`}
+                      target="_blank"
+                      className="rounded-lg bg-[#B11218] px-5 py-3 text-base font-bold text-white hover:bg-[#D11A22]"
+                    >
+                      Open Signup Page
+                    </Link>
+                  </div>
+                  <p className="mt-2 text-sm text-[#8F8F8F]">
+                    Share the full link (your site domain + the path above) - e.g. text/email it
+                    or post it wherever people will see it.
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-[#B7B7B7]">
+                  <span className="font-bold text-[#B11218]">Disabled</span> - this event does not
+                  have a free signup page. This is the default for every event so paid/ticketed
+                  events can never be self-registered for free. If this event is actually a free
+                  RSVP (not sold through Stripe/TicketSpice), turn on{' '}
+                  <span className="font-bold text-white">
+                    &quot;Allow free public self-registration&quot;
+                  </span>{' '}
+                  on the{' '}
+                  <Link
+                    href={`/events/${event.id}/edit`}
+                    className="font-bold text-[#B11218] hover:text-[#D11A22] hover:underline"
+                  >
+                    Edit Event
+                  </Link>{' '}
+                  page to get a shareable signup link.
+                </p>
+              )}
+            </div>
+          )}
+
+          {admin && (
+            <div className="mt-8 rounded-xl border border-[#2A0E10] bg-[#151111] p-5">
               <h2 className="text-2xl font-bold text-white">Event Controls</h2>
               <p className="mt-2 text-[#B7B7B7]">
                 Archive or cancel to hide this event from active lists while keeping registrations and history.

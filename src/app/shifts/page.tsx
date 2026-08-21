@@ -6,6 +6,7 @@ import { getCurrentAdmin } from '@/lib/auth'
 import ActionNotice from '@/components/admin/ActionNotice'
 
 const EVENT_TIME_ZONE = 'America/Los_Angeles'
+const ACTIVE_ASSIGNMENT_STATUSES = ['Assigned', 'Confirmed', 'Interested']
 
 function formatDate(date: Date | null) {
   if (!date) return '—'
@@ -24,7 +25,13 @@ function formatDate(date: Date | null) {
 export default async function ShiftsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ actionMessage?: string; actionStatus?: string; status?: string }>
+  searchParams?: Promise<{
+    actionMessage?: string
+    actionStatus?: string
+    status?: string
+    needs?: string
+    shiftStatus?: string
+  }>
 }) {
   const admin = await getCurrentAdmin()
   if (!admin) redirect('/admin/login?redirect=/shifts')
@@ -32,6 +39,18 @@ export default async function ShiftsPage({
   const params = searchParams ? await searchParams : {}
   const requestedStatus = String(params.status || 'active')
   const statusFilter = ['active', 'archived', 'all'].includes(requestedStatus) ? requestedStatus : 'active'
+  // "Needs volunteers" = still-open shifts that haven't hit their headcount
+  // yet. This is computed after fetching (it depends on comparing each
+  // shift's active-assignment count to neededCount, not a plain column), so
+  // it's applied as a post-fetch filter below rather than in `where`.
+  const needsVolunteersOnly = params.needs === '1'
+  // Filters to the VolunteerShift.status field specifically (Open/Full/
+  // Closed/Cancelled) - independent of the active/archived/all tabs above,
+  // which filter on archivedAt/cancelledAt instead.
+  const shiftStatusFilter = ['Open', 'Full', 'Closed', 'Cancelled'].includes(String(params.shiftStatus || ''))
+    ? String(params.shiftStatus)
+    : null
+
   const where: Prisma.VolunteerShiftWhereInput =
     statusFilter === 'all'
       ? {}
@@ -39,14 +58,35 @@ export default async function ShiftsPage({
         ? { OR: [{ archivedAt: { not: null } }, { cancelledAt: { not: null } }, { status: 'Cancelled' }, { event: { is: { archivedAt: { not: null } } } }, { event: { is: { cancelledAt: { not: null } } } }] }
         : { archivedAt: null, cancelledAt: null, NOT: { status: 'Cancelled' }, event: { is: { archivedAt: null, cancelledAt: null, NOT: { status: 'Cancelled' } } } }
 
-  const shifts = await prisma.volunteerShift.findMany({
+  if (shiftStatusFilter) {
+    where.status = shiftStatusFilter
+  }
+
+  const allShifts = await prisma.volunteerShift.findMany({
     where,
     include: { event: true, assignments: { include: { member: true }, orderBy: [{ member: { firstName: 'asc' } }, { member: { lastName: 'asc' } }] } },
     orderBy: { startsAt: 'asc' },
   })
 
+  const shifts = needsVolunteersOnly
+    ? allShifts.filter((shift) => {
+        const activeCount = shift.assignments.filter((a) => ACTIVE_ASSIGNMENT_STATUSES.includes(a.status)).length
+        return shift.status === 'Open' && activeCount < shift.neededCount
+      })
+    : allShifts
+
   const isCheckIn = admin.role === 'CHECK_IN'
   const shiftDetailPath = (shiftId: string) => (isCheckIn ? `/shifts/${shiftId}/check-in` : `/shifts/${shiftId}/edit`)
+
+  const filterQuery = (extra: Record<string, string>) => {
+    const p = new URLSearchParams()
+    if (statusFilter !== 'active') p.set('status', statusFilter)
+    for (const [key, value] of Object.entries(extra)) {
+      if (value) p.set(key, value)
+    }
+    const qs = p.toString()
+    return qs ? `/shifts?${qs}` : '/shifts'
+  }
 
   return (
     <main className="min-h-screen bg-black p-8 text-white">
@@ -72,14 +112,31 @@ export default async function ShiftsPage({
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             {[['active', 'Active'], ['archived', 'Archived'], ['all', 'All']].map(([value, label]) => (
-              <Link key={value} href={value === 'active' ? '/shifts' : `/shifts?status=${value}`} className={statusFilter === value ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#3A1215] px-4 py-2 text-sm font-bold text-white hover:border-[#B11218] hover:text-[#B11218]'}>
+              <Link key={value} href={value === 'active' ? '/shifts' : `/shifts?status=${value}`} className={statusFilter === value && !needsVolunteersOnly && !shiftStatusFilter ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#3A1215] px-4 py-2 text-sm font-bold text-white hover:border-[#B11218] hover:text-[#B11218]'}>
                 {label}
               </Link>
             ))}
+
+            <span className="mx-1 self-center text-[#3A1215]">|</span>
+
+            <Link
+              href={filterQuery({ needs: '1' })}
+              className={needsVolunteersOnly ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white'}
+            >
+              Needs Volunteers
+            </Link>
+
+            <Link
+              href={filterQuery({ shiftStatus: 'Open' })}
+              className={shiftStatusFilter === 'Open' && !needsVolunteersOnly ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#3A1215] px-4 py-2 text-sm font-bold text-white hover:border-[#B11218] hover:text-[#B11218]'}
+            >
+              Open Only
+            </Link>
           </div>
           <div className="mt-8 grid gap-5">
             {shifts.map((shift) => {
-              const assignedCount = shift.assignments.length
+              const activeAssignments = shift.assignments.filter((a) => ACTIVE_ASSIGNMENT_STATUSES.includes(a.status))
+              const assignedCount = activeAssignments.length
               const checkedInCount = shift.assignments.filter((a) => a.checkedIn).length
               const attendedCount = shift.assignments.filter((a) => a.status === 'Attended').length
               const cancelledCount = shift.assignments.filter((a) => a.status === 'Cancelled').length

@@ -293,15 +293,48 @@ async function resolveAttendeesSegment(years: number[] | null, label: string) {
   return buildMemberResolution(members, label)
 }
 
-// Volunteers, any year they have a VOLUNTEER participation record. `years`
-// null = anyone with a volunteer profile at all (matches the original,
-// year-less 'volunteers' segment behavior for legacy campaigns).
+// Same statuses admin/volunteers and volunteer-shifts pages treat as "actively
+// signed up" for a shift - kept in sync manually since it's a small fixed list.
+const ACTIVE_VOLUNTEER_ASSIGNMENT_STATUSES = ['Assigned', 'Confirmed', 'Interested']
+
+// Volunteers for a given year. Matches EITHER a VOLUNTEER participation
+// record for that year OR an active shift assignment starting in that year -
+// most 2026 volunteers only have the latter, since nothing in the live
+// signup/assignment flow creates a ParticipationRecord automatically (it's
+// only ever written by the one-off bulk participation import tool). Matching
+// on assignments too keeps this segment in sync with how admin/volunteers
+// already defines "volunteer in year X".
+// `years` null = anyone with a volunteer profile at all (matches the
+// original, year-less 'volunteers' segment behavior for legacy campaigns).
 async function resolveVolunteersSegment(years: number[] | null, label: string) {
+  const yearRanges = years
+    ? years.map((year) => ({
+        gte: new Date(Date.UTC(year, 0, 1)),
+        lt: new Date(Date.UTC(year + 1, 0, 1)),
+      }))
+    : null
+
   const members = await prisma.member.findMany({
     where: {
       volunteerProfile: { isNot: null },
-      ...(years
-        ? { participationRecords: { some: { type: 'VOLUNTEER', year: { in: years } } } }
+      ...(years && yearRanges
+        ? {
+            OR: [
+              { participationRecords: { some: { type: 'VOLUNTEER', year: { in: years } } } },
+              {
+                volunteerAssignments: {
+                  some: {
+                    status: { in: ACTIVE_VOLUNTEER_ASSIGNMENT_STATUSES },
+                    shift: {
+                      OR: yearRanges.map((range) => ({ startsAt: range })),
+                      archivedAt: null,
+                      cancelledAt: null,
+                    },
+                  },
+                },
+              },
+            ],
+          }
         : {}),
     },
     select: {

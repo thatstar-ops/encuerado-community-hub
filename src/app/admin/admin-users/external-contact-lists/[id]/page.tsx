@@ -3,6 +3,7 @@ import { requireSuperAdmin } from '@/lib/auth'
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { ExternalContactListMemberExportButton } from '@/components/admin/ExternalContactListExportButton'
+import { deleteExternalContactList } from '@/lib/external-contact-list-actions'
 
 export default async function ExternalContactListDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireSuperAdmin()
@@ -31,6 +32,32 @@ export default async function ExternalContactListDetailPage({ params }: { params
             </div>
             <ExternalContactListMemberExportButton listId={id} />
           </div>
+
+          <details className="mt-6 rounded-xl border border-[#B11218] bg-[#151111] p-4">
+            <summary className="cursor-pointer font-bold text-[#FFB3B6]">
+              Delete This List
+            </summary>
+            <p className="mt-3 text-sm text-[#B7B7B7]">
+              Removes this list and its {list.members.length} contact membership(s). The
+              underlying Member records are NOT deleted - anyone on this list who is also a real
+              attendee, volunteer, etc. is unaffected. This cannot be undone. Type DELETE to
+              confirm.
+            </p>
+            <form action={deleteExternalContactList} className="mt-4 grid gap-3 sm:flex sm:items-center">
+              <input type="hidden" name="id" value={list.id} />
+              <input
+                name="confirmPhrase"
+                placeholder="Type DELETE"
+                className="rounded-lg border border-[#3A1215] bg-black p-3 text-white placeholder:text-[#777777] focus:border-[#B11218] focus:outline-none"
+              />
+              <button
+                type="submit"
+                className="rounded-lg border border-[#B11218] px-4 py-3 text-sm font-bold text-[#FFB3B6] hover:bg-[#B11218] hover:text-white"
+              >
+                Permanently Delete List
+              </button>
+            </form>
+          </details>
 
           <div className="mt-8 overflow-x-auto rounded-xl border border-[#3A1215]">
             <table className="w-full text-left text-base">

@@ -10,13 +10,23 @@ export const RAFFLES: Record<string, string> = {
   'carne-asada': 'Carne Asada',
   contramundo: 'ContraMundo',
   machete: 'Machete',
-  'mr-rough-trade-gear-contest': 'Mr Rough Trade Gear Contest',
+  'mr-rough-trade-gear-contest': 'Rough Trade Gear',
 }
 
 export type RaffleId = keyof typeof RAFFLES
 
 export function isValidRaffleId(value: string): value is RaffleId {
   return Object.prototype.hasOwnProperty.call(RAFFLES, value)
+}
+
+// Raffles that are no longer accepting entries (their event already
+// happened). Kept in RAFFLES above on purpose - existing QR codes/links for
+// a closed raffle still resolve to a real page instead of a 404, they just
+// show a "closed" message and the server action rejects any submission.
+const CLOSED_RAFFLE_IDS: RaffleId[] = ['dore-alley', 'carne-asada']
+
+export function isRaffleClosed(raffleId: string): boolean {
+  return (CLOSED_RAFFLE_IDS as string[]).includes(raffleId)
 }
 
 export function raffleLabel(raffleId: string): string {

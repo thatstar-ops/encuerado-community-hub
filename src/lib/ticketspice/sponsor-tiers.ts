@@ -12,6 +12,7 @@ export const WEEKEND_PASS_EVENT_TITLES = [
   'Primer Impacto',
   'Aguas Frescas Wet Play Party',
   'Sombras de Mi Barrio',
+  'ContraMundo - Encuerado Weekend Edition',
   'Mr Cuero Contest & After Party',
 ]
 

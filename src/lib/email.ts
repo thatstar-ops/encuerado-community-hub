@@ -55,6 +55,7 @@ export async function sendPromotionalEmail({
         campaignId,
         memberId,
         status: 'Sent',
+        source: 'Campaign',
       },
     })
 
@@ -71,6 +72,7 @@ export async function sendPromotionalEmail({
         memberId,
         status: 'Failed',
         error: errorMessage,
+        source: 'Campaign',
       },
     })
 

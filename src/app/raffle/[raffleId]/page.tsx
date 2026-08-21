@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect, notFound } from 'next/navigation'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { isValidRaffleId, raffleLabel, raffleListLabel } from '@/lib/raffles'
+import { isValidRaffleId, raffleLabel, raffleListLabel, isRaffleClosed } from '@/lib/raffles'
 
 const RAFFLE_OPT_IN_LIST_LABEL = 'Raffle Email Opt-In 2026'
 
@@ -48,6 +48,10 @@ async function enterRaffle(raffleId: string, formData: FormData) {
 
   if (!isValidRaffleId(raffleId)) {
     throw new Error('Unknown raffle.')
+  }
+
+  if (isRaffleClosed(raffleId)) {
+    throw new Error('This raffle is closed and no longer accepting entries.')
   }
 
   const eventName = raffleLabel(raffleId)
@@ -211,7 +215,45 @@ export default async function RafflePage({
   }
 
   const eventName = raffleLabel(raffleId)
+  const closed = isRaffleClosed(raffleId)
   const enterThisRaffle = enterRaffle.bind(null, raffleId)
+
+  if (closed) {
+    return (
+      <main className="min-h-screen bg-black p-6 text-white sm:p-8">
+        <div className="mx-auto max-w-3xl">
+          <Link
+            href="/"
+            className="text-base font-semibold text-[#B11218] hover:text-[#D11A22]"
+          >
+            ← Home
+          </Link>
+
+          <div className="mt-6 rounded-2xl border border-[#2A0E10] bg-[#0B0B0B] p-6 shadow-2xl sm:p-8 text-center">
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-[#B11218]">
+              {eventName} - Encuerado Community Raffle
+            </p>
+
+            <h1 className="mt-3 text-4xl font-black uppercase tracking-wide text-white sm:text-5xl">
+              Entries Closed
+            </h1>
+
+            <p className="mt-4 text-lg text-[#B7B7B7]">
+              This raffle is no longer accepting entries. Thanks to everyone
+              who entered at {eventName}.
+            </p>
+
+            <Link
+              href="/raffle"
+              className="mt-8 inline-block rounded-lg bg-[#B11218] px-5 py-4 text-lg font-black uppercase tracking-wide text-white hover:bg-[#D11A22]"
+            >
+              See Open Raffles
+            </Link>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-black p-6 text-white sm:p-8">

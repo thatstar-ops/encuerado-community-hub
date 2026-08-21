@@ -214,6 +214,7 @@ export default async function VolunteerShiftsPage({
     },
     include: {
       event: true,
+      role: { select: { title: true, description: true } },
       assignments: {
         where: {
           status: { in: ACTIVE_VOLUNTEER_ASSIGNMENT_STATUSES },
@@ -439,9 +440,9 @@ export default async function VolunteerShiftsPage({
                                     <p className="mt-1 text-sm text-[#D11A22]">
                                       {shift.event.title}
                                     </p>
-                                    {shift.event.location && (
+                                    {(shift.location || shift.event.location) && (
                                       <p className="mt-1 text-sm text-[#B7B7B7]">
-                                        Location: {shift.event.location}
+                                        Location: {shift.location || shift.event.location}
                                       </p>
                                     )}
                                   </div>
@@ -463,6 +464,13 @@ export default async function VolunteerShiftsPage({
                                     </div>
                                   )}
                                 </div>
+
+                                {shift.role && (
+                                  <p className="mt-3 whitespace-pre-line text-[#B7B7B7]">
+                                    <span className="font-bold text-white">{shift.role.title}:</span>{' '}
+                                    {shift.role.description}
+                                  </p>
+                                )}
 
                                 {shift.description && (
                                   <p className="mt-3 text-[#B7B7B7]">

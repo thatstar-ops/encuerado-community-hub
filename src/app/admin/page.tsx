@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { redirectVotingAdminAwayFromGeneralAdmin } from '@/lib/voting-admin-access'
 import { prisma } from '@/lib/prisma'
 import { getCurrentAdmin } from '@/lib/auth'
+import type { Prisma } from '@prisma/client'
 
 export default async function AdminDashboardPage() {
   const admin = await getCurrentAdmin()
@@ -57,6 +58,17 @@ export default async function AdminDashboardPage() {
   const nextYearStart = new Date(Date.UTC(currentYear + 1, 0, 1))
   const activeVolunteerAssignmentStatuses = ['Assigned', 'Confirmed', 'Interested']
 
+  // A member whose ONLY ticket purchase(s) are Carne Asada (a food add-on, not an
+  // event/weekend ticket) should not be counted as a genuine current-year attendee,
+  // even though the TicketSpice pipeline creates an ATTENDEE participation record for
+  // any paid order regardless of product. Keep in sync with members/page.tsx.
+  const carneAsadaOnlyCondition: Prisma.MemberWhereInput = {
+    ticketPurchases: {
+      some: {},
+      every: { productName: { contains: 'Carne Asada', mode: 'insensitive' } },
+    },
+  }
+
   const [
     attendeeCountCurrentYear,
     totalAttendeeCount,
@@ -68,6 +80,8 @@ export default async function AdminDashboardPage() {
     sentCampaignCount,
     webhookNeedsProcessingCount,
     webhookFailedCount,
+    stripeWebhookNeedsProcessingCount,
+    stripeWebhookFailedCount,
     eventCount,
   ] = await Promise.all([
     prisma.member.count({
@@ -79,6 +93,7 @@ export default async function AdminDashboardPage() {
             type: 'ATTENDEE',
           },
         },
+        NOT: carneAsadaOnlyCondition,
       },
     }),
 
@@ -168,6 +183,21 @@ export default async function AdminDashboardPage() {
       },
     }),
 
+    prisma.stripeWebhookLog.count({
+      where: {
+        processedAt: null,
+      },
+    }),
+
+    prisma.stripeWebhookLog.count({
+      where: {
+        OR: [
+          { status: 'failed' },
+          { error: { not: null } },
+        ],
+      },
+    }),
+
     prisma.event.count({
       where: {
         archivedAt: null,
@@ -232,7 +262,7 @@ export default async function AdminDashboardPage() {
           </Link>
 
           <Link
-            href="/shifts"
+            href="/shifts?needs=1"
             className="rounded-2xl border border-[#2A0E10] bg-[#0B0B0B] p-6 shadow-xl transition-colors hover:border-[#B11218] hover:bg-[#151111]"
           >
             <div className="text-xl font-black uppercase tracking-wide text-[#B11218]">
@@ -247,7 +277,7 @@ export default async function AdminDashboardPage() {
           </Link>
 
           <Link
-            href="/admin/campaigns"
+            href="/admin/campaigns?status=Draft"
             className="rounded-2xl border border-[#2A0E10] bg-[#0B0B0B] p-6 shadow-xl transition-colors hover:border-[#B11218] hover:bg-[#151111]"
           >
             <div className="text-xl font-black uppercase tracking-wide text-[#B11218]">
@@ -262,7 +292,22 @@ export default async function AdminDashboardPage() {
           </Link>
 
           <Link
-            href="/admin/ticketspice-webhooks"
+            href="/admin/stripe-webhooks?filter=unprocessed"
+            className="rounded-2xl border border-[#2A0E10] bg-[#0B0B0B] p-6 shadow-xl transition-colors hover:border-[#B11218] hover:bg-[#151111]"
+          >
+            <div className="text-xl font-black uppercase tracking-wide text-[#B11218]">
+              Stripe Webhooks
+            </div>
+            <div className="mt-3 text-5xl font-extrabold text-white">
+              {stripeWebhookNeedsProcessingCount}
+            </div>
+            <div className="mt-3 text-base font-medium text-[#B7B7B7]">
+              Needs processing / Failed: {stripeWebhookFailedCount}
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/ticketspice-webhooks?filter=unprocessed"
             className="rounded-2xl border border-[#2A0E10] bg-[#0B0B0B] p-6 shadow-xl transition-colors hover:border-[#B11218] hover:bg-[#151111]"
           >
             <div className="text-xl font-black uppercase tracking-wide text-[#B11218]">

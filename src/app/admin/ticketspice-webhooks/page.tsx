@@ -233,11 +233,15 @@ export default async function TicketSpiceWebhooksPage({
     processResult?: string
     cleanupResult?: string
     message?: string
+    filter?: string
   }>
 }) {
   const admin = await requireSuperAdmin()
 
   const params = await searchParams
+  const activeFilter = ['unprocessed', 'failed'].includes(String(params?.filter || ''))
+    ? String(params?.filter)
+    : null
 
   // Parse dry-run result
   let dryRunResult: any = null
@@ -264,9 +268,22 @@ export default async function TicketSpiceWebhooksPage({
 
   const message = params?.message || null
 
+  const logsWhere =
+    activeFilter === 'unprocessed'
+      ? { processedAt: null }
+      : activeFilter === 'failed'
+        ? { OR: [{ status: 'failed' }, { status: 'Failed' }, { error: { not: null } }] }
+        : {}
+
   const logs = await prisma.ticketSpiceWebhookLog.findMany({
+    where: logsWhere,
     orderBy: { receivedAt: 'desc' },
-    take: 50,
+    // Unfiltered view stays capped at the most recent 50 (this table isn't
+    // paginated). A filtered view needs a much higher cap - otherwise a
+    // dashboard tile promising "12 need processing" could show fewer than
+    // 12 here if more than 50 logs exist total and the unprocessed ones
+    // aren't all in the most recent 50.
+    take: activeFilter ? 500 : 50,
     select: {
       id: true,
       receivedAt: true,
@@ -477,6 +494,27 @@ export default async function TicketSpiceWebhooksPage({
                 {label}: {count}
               </span>
             ))}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link
+              href="/admin/ticketspice-webhooks"
+              className={!activeFilter ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#3A1215] px-4 py-2 text-sm font-bold text-white hover:border-[#B11218] hover:text-[#B11218]'}
+            >
+              Recent 50
+            </Link>
+            <Link
+              href="/admin/ticketspice-webhooks?filter=unprocessed"
+              className={activeFilter === 'unprocessed' ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white'}
+            >
+              Needs Processing
+            </Link>
+            <Link
+              href="/admin/ticketspice-webhooks?filter=failed"
+              className={activeFilter === 'failed' ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white'}
+            >
+              Failed
+            </Link>
           </div>
 
           <div className="mt-6 rounded-xl border border-[#B11218]/50 bg-[#B11218]/10 p-4 text-yellow-100">

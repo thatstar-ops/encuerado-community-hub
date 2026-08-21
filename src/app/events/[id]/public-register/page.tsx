@@ -42,6 +42,14 @@ async function publicRegisterForEvent(eventId: string, formData: FormData) {
     throw new Error('Event not found.')
   }
 
+  // Defense in depth: this same check gates the form below, but a server
+  // action can be invoked directly regardless of what the UI shows, so the
+  // real gate has to live here too. Most events are paid/ticketed and must
+  // never be reachable through free self-registration.
+  if (!event.selfRegistrationEnabled) {
+    throw new Error('This event requires a paid ticket and is not open for free registration.')
+  }
+
   if (event.archivedAt || event.cancelledAt || event.status === 'Cancelled') {
     throw new Error('This event is not open for registration.')
   }
@@ -127,6 +135,7 @@ export default async function PublicEventRegisterPage({
   const isUnavailable = Boolean(
     event.archivedAt || event.cancelledAt || event.status === 'Cancelled'
   )
+  const selfRegistrationDisabled = !event.selfRegistrationEnabled
 
   return (
     <main className="min-h-screen bg-black p-8 text-white">
@@ -189,7 +198,16 @@ export default async function PublicEventRegisterPage({
             </div>
           </div>
 
-          {isUnavailable ? (
+          {selfRegistrationDisabled ? (
+            <div className="mt-8 rounded-xl border border-[#B11218] bg-[#151111] p-6">
+              <h2 className="text-2xl font-bold text-white">
+                Tickets Required
+              </h2>
+              <p className="mt-2 text-[#B7B7B7]">
+                This event requires a paid ticket and is not open for free registration.
+              </p>
+            </div>
+          ) : isUnavailable ? (
             <div className="mt-8 rounded-xl border border-[#B11218] bg-[#151111] p-6">
               <h2 className="text-2xl font-bold text-white">
                 Registration Closed

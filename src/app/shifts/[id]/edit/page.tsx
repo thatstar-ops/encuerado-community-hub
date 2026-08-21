@@ -28,9 +28,10 @@ async function updateShift(shiftId: string, formData: FormData) {
   if (!admin) redirect(`/admin/login?redirect=/shifts/${shiftId}/edit`)
 
   const eventId = String(formData.get('eventId') || '').trim()
+  const roleId = String(formData.get('roleId') || '').trim()
   const title = String(formData.get('title') || '').trim()
   const description = String(formData.get('description') || '').trim()
-  const location = String(formData.get('location') || '').trim()
+  const locationInput = String(formData.get('location') || '').trim()
   const startsAt = String(formData.get('startsAt') || '').trim()
   const endsAt = String(formData.get('endsAt') || '').trim()
   const neededCountRaw = String(formData.get('neededCount') || '1').trim()
@@ -39,6 +40,11 @@ async function updateShift(shiftId: string, formData: FormData) {
 
   if (!eventId || !title || !startsAt) {
     throw new Error('Event, title, and start time are required.')
+  }
+
+  if (roleId) {
+    const role = await prisma.volunteerRole.findUnique({ where: { id: roleId }, select: { id: true } })
+    if (!role) throw new Error('Choose a valid role.')
   }
 
   const [currentShift, selectedEvent] = await Promise.all([
@@ -81,9 +87,13 @@ async function updateShift(shiftId: string, formData: FormData) {
     where: { id: shiftId },
     data: {
       eventId,
+      roleId: roleId || null,
       title,
       description: description || null,
-      location: selectedEvent.location || null,
+      // Defaults to the event's location; an admin can type a different
+      // address here to override it for just this shift (e.g. an offsite
+      // location or a different building on the venue).
+      location: locationInput || selectedEvent.location || null,
       startsAt: parsedStartsAt,
       endsAt: parsedEndsAt,
       neededCount: Number(neededCountRaw) || 1,
@@ -226,6 +236,7 @@ export default async function EditShiftPage({
     where: { id },
     include: {
       event: true,
+      role: true,
       assignments: {
         include: {
           member: {
@@ -266,6 +277,13 @@ export default async function EditShiftPage({
   const assignedMemberIds = shift.assignments.map(
     (assignment) => assignment.memberId
   )
+
+  const roles = await prisma.volunteerRole.findMany({
+    where: {
+      OR: [{ archivedAt: null }, { id: shift.roleId || '' }],
+    },
+    orderBy: { title: 'asc' },
+  })
 
   const availableMembers = await prisma.member.findMany({
     where: {
@@ -392,6 +410,40 @@ export default async function EditShiftPage({
               </label>
 
               <label className="grid gap-2">
+                <span className="text-base font-bold text-white">Location / Address</span>
+                <input
+                  name="location"
+                  defaultValue={shift.location || ''}
+                  placeholder="Leave blank to use the event's location"
+                  className={inputClass}
+                />
+                <span className="text-sm text-[#8F8F8F]">
+                  Defaults to the selected event&apos;s location. Type an address here to override
+                  it for just this shift (e.g. a different building or an offsite location).
+                  Clear this field and save to go back to using the event's location.
+                </span>
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-base font-bold text-white">Role (job description)</span>
+                <select name="roleId" defaultValue={shift.roleId || ''} className={inputClass}>
+                  <option value="">No role — use the description field below only</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.title}
+                      {role.archivedAt ? ' (archived)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-sm text-[#8F8F8F]">
+                  Linking a role includes its job description in the shift reminder email.{' '}
+                  <Link href="/admin/volunteer-roles" className="text-[#B11218] hover:underline">
+                    Manage roles →
+                  </Link>
+                </span>
+              </label>
+
+              <label className="grid gap-2">
                 <span className="text-base font-bold text-white">Description</span>
                 <textarea
                   name="description"
@@ -399,6 +451,10 @@ export default async function EditShiftPage({
                   defaultValue={shift.description || ''}
                   className={inputClass}
                 />
+                <span className="text-sm text-[#8F8F8F]">
+                  Shift-specific notes only (not included in reminder emails). Use a Role above
+                  for the reusable job description.
+                </span>
               </label>
 
               <div className="grid gap-5 md:grid-cols-2">

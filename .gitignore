@@ -46,3 +46,6 @@ next-env.d.ts
 
 # one-off data imports - may contain real attendee PII, never commit
 /imports/
+
+# scratch folder created by Claude (device sandbox cannot delete files)
+_to_delete/

@@ -59,6 +59,7 @@ export async function sendRegistrationConfirmation(
       data: {
         memberId,
         status: 'Sent',
+        source: 'RegistrationConfirmation',
       },
     })
   } catch (error) {
@@ -70,6 +71,7 @@ export async function sendRegistrationConfirmation(
         memberId,
         status: 'Failed',
         error: errorMessage,
+        source: 'RegistrationConfirmation',
       },
     })
   }

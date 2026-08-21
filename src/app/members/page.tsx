@@ -21,6 +21,7 @@ export default async function MembersPage({
     participation?: string
     status?: string
     type?: string
+    passType?: string
     actionMessage?: string
     actionStatus?: string
   }>
@@ -33,6 +34,7 @@ export default async function MembersPage({
   const yearParam = String(queryParams.year || '')
   const participation = String(queryParams.participation || '')
   const typeParam = String(queryParams.type || '')
+  const passTypeParam = String(queryParams.passType || '')
   const requestedStatus = String(queryParams.status || 'active')
   const statusFilter = ['active', 'archived', 'all'].includes(requestedStatus)
     ? requestedStatus
@@ -65,21 +67,52 @@ export default async function MembersPage({
     { state: { contains: query } }, { notes: { contains: query } },
   ] })
 
-  // Year filter via participation records
-  if (yearFilter !== null) {
-    const typeToFilter = (typeParam === 'attendee' || typeParam === 'volunteer')
-      ? (typeParam === 'attendee' ? 'ATTENDEE' : 'VOLUNTEER')
-      : null
+  // A member whose ONLY ticket purchase(s) are Carne Asada (a food add-on, not an
+  // event/weekend ticket) should not be counted as a genuine current-year "attendee,"
+  // even though the TicketSpice pipeline creates an ATTENDEE participation record for
+  // any paid order regardless of product. Used to exclude carne-asada-only buyers from
+  // the current-year attendee count/filter.
+  const carneAsadaOnlyCondition: Prisma.MemberWhereInput = {
+    ticketPurchases: {
+      some: {},
+      every: { productName: { contains: 'Carne Asada', mode: 'insensitive' } },
+    },
+  }
 
-    if (typeToFilter) {
-      filters.push({
-        participationRecords: { some: { year: yearFilter, type: typeToFilter } },
-      })
-    } else {
-      filters.push({
-        participationRecords: { some: { year: yearFilter } },
-      })
+  // Pass/VIP/Sponsor filters. These match the exact same definitions used to
+  // compute the counts shown on the "Passes / VIP / Sponsors" dashboard
+  // tile below, so clicking through to a filtered list always matches the
+  // number that was clicked.
+  if (passTypeParam === 'sponsor') {
+    filters.push({
+      sponsorFulfillments: { some: { eventYear: yearFilter ?? currentYear } },
+    })
+  } else if (passTypeParam === 'weekend_pass' || passTypeParam === 'vip_pass') {
+    filters.push({
+      participationRecords: { some: { year: yearFilter ?? currentYear, type: 'ATTENDEE' } },
+    })
+    filters.push({
+      ticketPurchases: {
+        some: { purchaseType: passTypeParam === 'weekend_pass' ? 'Weekend Pass' : 'VIP Pass' },
+      },
+    })
+  } else if (typeParam === 'attendee' || typeParam === 'volunteer') {
+    // Type filter, independent of whether a year is also set. "attendee" with no year
+    // means "has a genuine ATTENDEE participation record for any year" — this is what
+    // backs the "Total attendee profiles" figure/link.
+    const type = typeParam === 'attendee' ? 'ATTENDEE' : 'VOLUNTEER'
+    const participationWhere: Prisma.ParticipationRecordWhereInput = { type }
+    if (yearFilter !== null) participationWhere.year = yearFilter
+    filters.push({ participationRecords: { some: participationWhere } })
+
+    // Exclude carne-asada-only buyers specifically from the current-year attendee view.
+    if (type === 'ATTENDEE' && yearFilter === currentYear) {
+      filters.push({ NOT: carneAsadaOnlyCondition })
     }
+  } else if (yearFilter !== null) {
+    filters.push({
+      participationRecords: { some: { year: yearFilter } },
+    })
   } else if (participation && Number.isInteger(yearFilter === null ? 0 : 1)) {
     // Fallback to old participation filter if year not set and participation is explicit
     const oldYear = Number(queryParams.year || '')
@@ -132,12 +165,21 @@ export default async function MembersPage({
         ? { archivedAt: { not: null } }
         : {}
 
-  const totalAttendees = await prisma.member.count({ where: countWhere })
+  // "Total attendee profiles" must reflect genuine attendees only — members who only
+  // exist because they were pulled in via an External Contact List import (no real
+  // participation history) should not inflate this count.
+  const totalAttendees = await prisma.member.count({
+    where: {
+      ...countWhere,
+      participationRecords: { some: { type: 'ATTENDEE' } },
+    },
+  })
 
   const attendeeCountCurrentYear = await prisma.member.count({
     where: {
       ...countWhere,
       participationRecords: { some: { year: currentYear, type: 'ATTENDEE' } },
+      NOT: carneAsadaOnlyCondition,
     },
   })
 
@@ -253,20 +295,27 @@ export default async function MembersPage({
               </div>
             </Link>
 
-            <Link
-              href="/members?year=current&type=attendee"
-              className="rounded-xl border border-[#2A0E10] bg-black p-6 transition-colors hover:border-[#B11218] hover:bg-[#0B0B0B]"
-            >
+            <div className="rounded-xl border border-[#2A0E10] bg-black p-6">
               <div className="text-xl font-black uppercase tracking-wide text-[#B11218]">
                 {currentYear} Passes / VIP / Sponsors
               </div>
               <div className="mt-3 text-5xl font-extrabold text-white">
                 {currentYearPackageCount}
               </div>
-              <div className="mt-3 text-base font-medium text-[#B7B7B7]">
-                Weekend Pass: {currentYearWeekendPassCount} · VIP Pass: {currentYearVipPassCount} · Sponsors: {currentYearSponsorCount}
+              <div className="mt-3 flex flex-wrap gap-x-2 gap-y-1 text-base font-medium text-[#B7B7B7]">
+                <Link href="/members?year=current&passType=weekend_pass" className="hover:text-[#B11218] hover:underline">
+                  Weekend Pass: {currentYearWeekendPassCount}
+                </Link>
+                <span>·</span>
+                <Link href="/members?year=current&passType=vip_pass" className="hover:text-[#B11218] hover:underline">
+                  VIP Pass: {currentYearVipPassCount}
+                </Link>
+                <span>·</span>
+                <Link href="/members?year=current&passType=sponsor" className="hover:text-[#B11218] hover:underline">
+                  Sponsors: {currentYearSponsorCount}
+                </Link>
               </div>
-            </Link>
+            </div>
           </div>
 
           {/* Import / Export section removed — now only on /admin/admin-users */}

@@ -101,6 +101,12 @@ export type ExternalContactImportPreviewRow = {
   alreadyInList: boolean
   errors: string[]
   action: 'create' | 'update' | 'link' | 'skip' | 'error'
+  // The exact Member this row was matched to at preview time (or null for
+  // "will create a new member"). Commit uses this directly instead of
+  // re-deriving a match, so two new rows that happen to share a phone number
+  // can't get silently merged into one record mid-batch (see
+  // commitExternalContactListImport).
+  matchedMemberId: string | null
 }
 
 export type ExternalContactImportPreview = {
@@ -486,6 +492,7 @@ export async function previewExternalContactListImport(
       alreadyInList,
       errors: issues,
       action,
+      matchedMemberId: member?.id || null,
     }
   })
 
@@ -580,29 +587,19 @@ export async function commitExternalContactListImport(
             ? placeholderEmailFor(row)
             : '')
 
-        const emailMember = resolvedEmail
+        // Use the exact match (or "no match, create new") the preview above
+        // already decided for this row. Re-deriving the match here against
+        // the live DB would let two different new people who share a phone
+        // number get silently merged: row 2's transaction would "find" row
+        // 1's brand-new record (just created a moment ago in this same
+        // batch) and merge into it, discarding row 2's own name/email, even
+        // though the preview the admin approved said both would be created
+        // separately.
+        const existing = item.matchedMemberId
           ? await tx.member.findUnique({
-              where: { email: resolvedEmail },
+              where: { id: item.matchedMemberId },
             })
           : null
-
-        const matchingPhones = row.phone
-          ? (
-              await tx.member.findMany({
-                where: { phone: { not: null } },
-              })
-            ).filter(
-              (candidate) =>
-                normalizedPhone(candidate.phone || '') ===
-                normalizedPhone(row.phone),
-            )
-          : []
-
-        const existing =
-          emailMember ||
-          (matchingPhones.length === 1
-            ? matchingPhones[0]
-            : null)
 
         let member
 

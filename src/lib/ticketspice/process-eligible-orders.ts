@@ -423,7 +423,7 @@ type Summary = {
 }
 
 
-function extractSponsorDonationCents(data: any, ticket: any) {
+function extractSponsorDonationCents(data: any, ticket: any, isSingleTicketOrder: boolean) {
   const ticketData = Array.isArray(ticket?.data) ? ticket.data : []
 
   for (const item of ticketData) {
@@ -442,9 +442,14 @@ function extractSponsorDonationCents(data: any, ticket: any) {
     return Math.round(deductibleTotal * 100)
   }
 
-  const total = Number(data?.total)
-  if (Number.isFinite(total) && total > 0) {
-    return Math.round(total * 100)
+  // Same order-total-duplication risk as extractLineAmountCents - only
+  // trust the order-level total when this sponsor ticket is the only ticket
+  // in the order.
+  if (isSingleTicketOrder) {
+    const total = Number(data?.total)
+    if (Number.isFinite(total) && total > 0) {
+      return Math.round(total * 100)
+    }
   }
 
   return null
@@ -821,7 +826,34 @@ export async function processEligibleOrders(dryRun: boolean, logId?: string) {
     const paymentStatus = data.orderStatus === 'completed' ? 'Paid' : data.orderStatus
     const orderAmountPaidCents = data.total ? Math.round(Number(data.total) * 100) : null
 
+    // Only safe to fall back to the whole order's total when the order has
+    // exactly one ticket - otherwise every ticket with no per-ticket amount
+    // (free/bundled add-ons with a $0 total) would each get stamped with the
+    // FULL order total independently, multiplying that order's revenue once
+    // per zero-priced ticket it contains. Confirmed this actually happened
+    // for 2 early orders (one bundled 2 free add-ons with a paid ticket and
+    // triple-counted the order total across all 3 rows).
+    const isSingleTicketOrder = tickets.length === 1
+    const orderLevelFallbackCents = isSingleTicketOrder ? orderAmountPaidCents : null
+
     const orderEventTicketCounts = new Map<string, number>()
+
+    // How many tickets in THIS order share the same raw label. TicketSpice
+    // gives each physical ticket its own line item (own id/lookupId), so
+    // buying 2 Carne Asada tickets in one order produces 2 separate ticket
+    // entries with the same label. Used below to disable the fuzzy
+    // order+productName dedup fallback when there's more than one ticket of
+    // the same type in the order - otherwise the 2nd ticket gets matched to
+    // the 1st ticket's already-created purchase row and its payment silently
+    // never gets its own TicketPurchase row.
+    const labelCountsInOrder = new Map<string, number>()
+
+    for (const countTicket of tickets) {
+      const countLabel = String(
+        countTicket.ticketLabel || countTicket.name || countTicket.productName || 'Unknown'
+      ).trim()
+      labelCountsInOrder.set(countLabel, (labelCountsInOrder.get(countLabel) || 0) + 1)
+    }
 
     for (const countTicket of tickets) {
       const countLabel = String(
@@ -892,7 +924,7 @@ export async function processEligibleOrders(dryRun: boolean, logId?: string) {
         summary.manualReview++
         summary.sponsorNeedsReview++
 
-        const sponsorDonationCents = extractSponsorDonationCents(data, ticket)
+        const sponsorDonationCents = extractSponsorDonationCents(data, ticket, isSingleTicketOrder)
         const sponsorBenefits = sponsorBenefitsFromCents(sponsorDonationCents)
 
         await upsertSponsorFulfillment({
@@ -931,8 +963,9 @@ export async function processEligibleOrders(dryRun: boolean, logId?: string) {
       const lineItemId = buildExternalLineItemId(orderId, ticket, i)
       const amountPaidCents =
         classification.type === 'sponsor'
-          ? extractSponsorDonationCents(data, ticket) || extractLineAmountCents(ticket, orderAmountPaidCents)
-          : extractLineAmountCents(ticket, orderAmountPaidCents)
+          ? extractSponsorDonationCents(data, ticket, isSingleTicketOrder) ||
+            extractLineAmountCents(ticket, orderLevelFallbackCents)
+          : extractLineAmountCents(ticket, orderLevelFallbackCents)
 
       const purchaseData: any = {
         externalSource: 'TicketSpice',
@@ -997,7 +1030,15 @@ export async function processEligibleOrders(dryRun: boolean, logId?: string) {
 
       let duplicateRisk = false
 
-      if (!existingPurchase) {
+      // Only try the fuzzy order+productName fallback match when this order
+      // has exactly one ticket of this label. If there are 2+ (e.g. someone
+      // bought 2 Carne Asada tickets together), each one already has its own
+      // unique lineItemId in practice - fuzzy-matching by productName alone
+      // can't tell them apart and would wrongly treat the 2nd ticket as an
+      // update to the 1st, dropping its payment from every money report.
+      const sameLabelCountInOrder = labelCountsInOrder.get(label) || 1
+
+      if (!existingPurchase && sameLabelCountInOrder === 1) {
         const fallbackMatches = await prisma.ticketPurchase.findMany({
           where: {
             externalSource: 'TicketSpice',

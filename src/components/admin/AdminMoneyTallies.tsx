@@ -62,22 +62,6 @@ function extractDonationCents(raw: any) {
   return null
 }
 
-function knownBasePriceCents(productName: string | null | undefined) {
-  const name = normalize(productName)
-
-  if (name.includes('CARNE ASADA')) return 3000
-
-  if (
-    name.includes('AGUAS FRESCAS') ||
-    name.includes('AGUA FRESCA') ||
-    name.includes('PISS QUEEN')
-  ) {
-    return 5000
-  }
-
-  return null
-}
-
 function ticketSpiceAmountToCents(value: unknown) {
   const amount = readNumber(value)
 
@@ -88,12 +72,33 @@ function ticketSpiceAmountToCents(value: unknown) {
   return dollarsToCents(amount)
 }
 
+// TicketSpice includes a per-ticket fee breakdown inside rawProductJson.data,
+// e.g. { key: "fee", type: "lineItem", appFeeTotal: "2.77" }. This is the
+// processing fee passed through to the buyer on top of the ticket price
+// (amount + fee = total). Used to derive a fee-exclusive "ticket price"
+// figure straight from what was actually charged, instead of trusting the
+// static raw.amount field (see baseTicketAmountCents for why that field
+// alone isn't safe when a coupon was applied).
+function feeCentsFromRaw(raw: any): number | null {
+  const items = Array.isArray(raw?.data) ? raw.data : []
+
+  for (const item of items) {
+    if (item?.key === 'fee') {
+      const feeAmount = readNumber(item?.appFeeTotal)
+      if (feeAmount !== null && feeAmount >= 0) return dollarsToCents(feeAmount)
+    }
+  }
+
+  return null
+}
+
 function baseTicketAmountCents(purchase: {
   amountPaidCents: number | null
   productName: string | null
   purchaseType: string | null
   productCategory: string | null
   rawProductJson: unknown
+  passCount: number
 }) {
   const raw = purchase.rawProductJson as any
 
@@ -107,9 +112,28 @@ function baseTicketAmountCents(purchase: {
     if (donationCents !== null) return donationCents
   }
 
-  const knownPrice = knownBasePriceCents(purchase.productName)
-  if (knownPrice !== null) return knownPrice
+  // Prefer the amount actually charged for this specific purchase minus its
+  // TicketSpice processing fee. amountPaidCents already reflects whatever
+  // was really collected - including coupon/discount codes applied at
+  // checkout - whereas rawProductJson.amount is a static per-ticket list
+  // price that does NOT get rewritten when a coupon is used. Relying on
+  // raw.amount alone silently overstates revenue on any discounted order
+  // (confirmed: an ENCWKD25 coupon order billed $45.01 total but its ticket
+  // line item still reported amount=50/total=52.77 as if full price).
+  if (purchase.amountPaidCents) {
+    const feeCents = feeCentsFromRaw(raw)
+    if (feeCents !== null) {
+      return Math.max(0, purchase.amountPaidCents - feeCents)
+    }
+  }
 
+  // Prefer the real TicketSpice line-item amount over a hardcoded price.
+  // Ticket prices change over a sale window (Carne Asada went from $30 to
+  // $50 partway through 2026 sales) - a flat constant goes stale the moment
+  // pricing changes. This is already the fee-exclusive total TicketSpice
+  // billed for this line item, so do NOT multiply by passCount here:
+  // passCount can mean "this ticket type admits N people" (VIP Pass = 2)
+  // rather than "N of these were bought at this price."
   const rawAmount = ticketSpiceAmountToCents(raw?.amount)
   if (rawAmount !== null) return rawAmount
 
@@ -119,9 +143,17 @@ function baseTicketAmountCents(purchase: {
   const rawPricePointPrice = ticketSpiceAmountToCents(raw?.pricePoint?.price)
   if (rawPricePointPrice !== null) return rawPricePointPrice
 
-  // Last fallback for older records without raw TicketSpice details.
-  // This may include TicketSpice fees, so use rawProductJson whenever available.
-  return purchase.amountPaidCents || 0
+  // Manual entries: trust whatever was actually collected, if recorded.
+  // Stored as a total for the whole entry already, not per-ticket.
+  if (purchase.amountPaidCents) return purchase.amountPaidCents
+
+  // No hardcoded price fallback on purpose: a flat guess (e.g. "Carne Asada
+  // is $30") silently goes stale the moment pricing changes, and would
+  // report a number nobody actually charged or collected. If we have
+  // neither real webhook data nor a recorded amount for this purchase, the
+  // honest answer is $0, not a guess - it'll show up here as a gap to
+  // investigate rather than a plausible-looking wrong number.
+  return 0
 }
 
 export async function AdminMoneyTallies() {
@@ -137,6 +169,7 @@ export async function AdminMoneyTallies() {
       purchaseType: true,
       productCategory: true,
       rawProductJson: true,
+      passCount: true,
     },
   })
 
