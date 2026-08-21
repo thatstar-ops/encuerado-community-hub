@@ -7,7 +7,7 @@ import { moveEventUp, moveEventDown } from '@/lib/event-reorder-actions'
 const EVENT_TIME_ZONE = 'America/Los_Angeles'
 
 function formatDate(date: Date | null) {
-  if (!date) return '�'
+  if (!date) return '—'
   return new Intl.DateTimeFormat('en-US', {
     timeZone: EVENT_TIME_ZONE,
     dateStyle: 'medium',
@@ -118,7 +118,7 @@ export default async function EventsListPage() {
                     </h2>
                     <p className="mt-1 text-sm text-[#B7B7B7]">
                       {formatDate(event.startsAt)}
-                      {event.endsAt && ` � ${formatDate(event.endsAt)}`}
+                      {event.endsAt && ` – ${formatDate(event.endsAt)}`}
                     </p>
                     {event.location && (
                       <p className="text-sm text-[#8F8F8F]">{event.location}</p>

@@ -248,7 +248,7 @@ function buildTicketRegistrationNote({
   quantity: number
 }) {
   const passLabel = quantity === 1 ? '1 pass' : String(quantity) + ' passes'
-  return 'TicketSpice order ' + orderId + ' Ã‚Â· ' + passLabel + ' Ã‚Â· ' + label
+  return 'TicketSpice order ' + orderId + ' · ' + passLabel + ' · ' + label
 }
 
 function mergeRegistrationNotes(existingNotes: string | null, newNote: string) {

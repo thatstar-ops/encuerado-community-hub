@@ -17,7 +17,7 @@ import {
 const EVENT_TIME_ZONE = 'America/Los_Angeles'
 
 function formatDate(date: Date | null) {
-  if (!date) return 'ï¿½'
+  if (!date) return '—'
 
   return new Intl.DateTimeFormat('en-US', {
     timeZone: EVENT_TIME_ZONE,
@@ -283,14 +283,14 @@ export default async function EventDetailPage({
             <div className="rounded-xl border border-[#2A0E10] bg-[#151111] p-5">
               <div className="text-sm font-semibold text-[#8F8F8F]">Location</div>
               <div className="mt-2 text-xl font-bold text-white">
-                {event.location || 'ï¿½'}
+                {event.location || '—'}
               </div>
             </div>
 
             <div className="rounded-xl border border-[#2A0E10] bg-[#151111] p-5">
               <div className="text-sm font-semibold text-[#8F8F8F]">Capacity</div>
               <div className="mt-2 text-xl font-bold text-white">
-                {event.capacity || 'ï¿½'}
+                {event.capacity || '—'}
               </div>
             </div>
           </div>
@@ -301,7 +301,7 @@ export default async function EventDetailPage({
             </div>
 
             <div className="mt-2 whitespace-pre-wrap text-lg text-white">
-              {event.description || 'ï¿½'}
+              {event.description || '—'}
             </div>
           </div>
 
@@ -340,7 +340,7 @@ export default async function EventDetailPage({
               <div className="mt-2 text-4xl font-black uppercase tracking-wide text-white">
                 {event.capacity
                   ? Math.max(event.capacity - event.registrations.length, 0)
-                  : 'ï¿½'}
+                  : '—'}
               </div>
             </div>
           </div>
@@ -640,7 +640,7 @@ export default async function EventDetailPage({
                       </td>
 
                       <td className="p-4 text-white">
-                        {registration.member.phone || 'ï¿½'}
+                        {registration.member.phone || '—'}
                       </td>
 
                       <td className="p-4">
@@ -662,7 +662,7 @@ export default async function EventDetailPage({
                       </td>
 
                       <td className="p-4 text-white">
-                        {registration.notes || 'ï¿½'}
+                        {registration.notes || '—'}
                       </td>
 
                       {admin && (

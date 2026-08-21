@@ -44,6 +44,21 @@ function extractEventType(payloadJson: unknown, headers: Record<string, string>)
 }
 
 export async function POST(request: NextRequest) {
+  // TicketSpice ticket sales are finished, so this endpoint is CLOSED by
+  // default. It has no signature verification (unlike the Stripe webhook)
+  // and it auto-creates real TicketPurchase and Member rows from whatever
+  // is posted - leaving it open let anyone manufacture paid tickets.
+  // To re-open it, set TICKETSPICE_WEBHOOK_ENABLED=true in Vercel.
+  if (process.env.TICKETSPICE_WEBHOOK_ENABLED !== 'true') {
+    console.warn('[ticketspice] rejected inbound webhook - endpoint disabled', {
+      userAgent: request.headers.get('user-agent'),
+    })
+    return NextResponse.json(
+      { ok: false, error: 'This endpoint is no longer accepting webhooks.' },
+      { status: 403 }
+    )
+  }
+
   try {
     const headersJson = headersToObject(request)
     const queryParamsJson = queryParamsToObject(request)

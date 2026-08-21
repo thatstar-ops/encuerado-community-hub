@@ -18,7 +18,7 @@ export default function NavBar({
     return null
   }
 
-  // Links for CHECK_IN role â€“ only check-in essentials
+  // Links for CHECK_IN role – only check-in essentials
   const checkInLinks = [
     { href: '/admin', label: 'Dashboard' },
     { href: '/event-check-in', label: 'Event Check-in' },

@@ -121,8 +121,8 @@ export default async function OperationsPage({
                             </span>
                           )}
                           <div className="mt-1 text-sm text-[#B7B7B7]">
-                            {contact.role && <span>{contact.role} � </span>}
-                            {contact.email && <span>{contact.email} � </span>}
+                            {contact.role && <span>{contact.role} · </span>}
+                            {contact.email && <span>{contact.email} · </span>}
                             {phoneLink ? (
                               <a href={phoneLink} className="text-[#B11218] hover:underline">
                                 {contact.phone}
@@ -197,8 +197,8 @@ export default async function OperationsPage({
                             </span>
                           )}
                           <div className="mt-1 text-sm text-[#B7B7B7]">
-                            {contact.role && <span>{contact.role} � </span>}
-                            {contact.email && <span>{contact.email} � </span>}
+                            {contact.role && <span>{contact.role} · </span>}
+                            {contact.email && <span>{contact.email} · </span>}
                             {phoneLink ? (
                               <a href={phoneLink} className="text-[#B11218] hover:underline">
                                 {contact.phone}
@@ -274,7 +274,7 @@ export default async function OperationsPage({
                           </span>
                         )}
                         <div className="mt-1 text-sm text-[#B7B7B7]">
-                          {supply.owner && <span>Owner: {supply.owner} � </span>}
+                          {supply.owner && <span>Owner: {supply.owner} · </span>}
                           {supply.category && <span>{supply.category}</span>}
                         </div>
                         <div className="mt-1 flex flex-wrap gap-2 text-xs">
