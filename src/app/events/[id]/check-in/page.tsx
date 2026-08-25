@@ -275,7 +275,7 @@ export default async function EventCheckInPage({
             <div className="rounded-xl border border-[#2A0E10] bg-black p-6">
               <div className="text-sm font-semibold text-[#8F8F8F]">Completion</div>
               <div className="mt-2 text-5xl font-black uppercase tracking-wide text-white">
-                {event.registrations.length > 0 ? `${Math.round((checkedInCount / event.registrations.length) * 100)}%` : '0%'}
+                {event.registrations.length > 0 ? `${Math.round((checkedInCount / registeredPassCount) * 100)}%` : '0%'}
               </div>
             </div>
           </div>
@@ -342,7 +342,7 @@ export default async function EventCheckInPage({
                       {!isCheckIn && (
                         <div className="mt-2 text-lg">
                           {registration.member.email}
-                          {registration.member.phone ? ` {registration.member.phone}` : ''}
+                          {registration.member.phone ? ` · ${registration.member.phone}` : ''}
                         </div>
                       )}
                       <div className="mt-2 text-base font-semibold">
@@ -407,7 +407,7 @@ export default async function EventCheckInPage({
                               {sponsorFulfillment.giftIncluded && (
                                 <div>
                                   {sponsorFulfillment.giftGivenAt ? '[x]' : '[ ]'} {sponsorFulfillment.giftDescription || 'Exclusive sponsor gift'}
-                                  {sponsorFulfillment.hoodieSize ? ` {sponsorFulfillment.hoodieSize}` : ''}
+                                  {sponsorFulfillment.hoodieSize ? ` ${sponsorFulfillment.hoodieSize}` : ''}
                                 </div>
                               )}
                             </div>
