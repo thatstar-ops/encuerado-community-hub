@@ -78,8 +78,6 @@ export default async function AdminDashboardPage() {
     activeOpenShiftAssignments,
     draftCampaignCount,
     sentCampaignCount,
-    webhookNeedsProcessingCount,
-    webhookFailedCount,
     stripeWebhookNeedsProcessingCount,
     stripeWebhookFailedCount,
     eventCount,
@@ -167,21 +165,7 @@ export default async function AdminDashboardPage() {
       },
     }),
 
-    prisma.ticketSpiceWebhookLog.count({
-      where: {
-        processedAt: null,
-      },
-    }),
 
-    prisma.ticketSpiceWebhookLog.count({
-      where: {
-        OR: [
-          { status: 'failed' },
-          { status: 'Failed' },
-          { error: { not: null } },
-        ],
-      },
-    }),
 
     prisma.stripeWebhookLog.count({
       where: {
@@ -306,20 +290,10 @@ export default async function AdminDashboardPage() {
             </div>
           </Link>
 
-          <Link
-            href="/admin/ticketspice-webhooks?filter=unprocessed"
-            className="rounded-2xl border border-[#2A0E10] bg-[#0B0B0B] p-6 shadow-xl transition-colors hover:border-[#B11218] hover:bg-[#151111]"
-          >
-            <div className="text-xl font-black uppercase tracking-wide text-[#B11218]">
-              TicketSpice Webhooks
-            </div>
-            <div className="mt-3 text-5xl font-extrabold text-white">
-              {webhookNeedsProcessingCount}
-            </div>
-            <div className="mt-3 text-base font-medium text-[#B7B7B7]">
-              Needs processing / Failed: {webhookFailedCount}
-            </div>
-          </Link>
+          {/* TicketSpice tile removed 2026-08-25: ticket sales through TicketSpice
+              are finished and the inbound webhook is disabled, so the count only
+              ever showed leftover non-order pings. The page itself still lives at
+              /admin/ticketspice-webhooks if the history is ever needed. */}
 
           <Link
             href="/events"
