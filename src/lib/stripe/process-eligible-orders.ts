@@ -83,6 +83,42 @@ function splitName(fullName: string | null | undefined): { firstName: string; la
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') }
 }
 
+
+// Stripe checkout collects the T-shirt size as a custom field on the SESSION
+// (key "tshirtsize", a dropdown) - not on the line item. So it has to be read
+// off the session and applied to every purchase in that order. Stripe returns
+// the dropdown's machine value, e.g. "s" or "xxl", so it needs normalising.
+function shirtSizeFromStripeSession(session: any): string | null {
+  const fields = Array.isArray(session?.custom_fields) ? session.custom_fields : []
+
+  const field = fields.find((entry: any) => {
+    const key = String(entry?.key || '').toLowerCase().replace(/[^a-z]/g, '')
+    const label = String(entry?.label?.custom || '').toLowerCase()
+    return key.includes('shirt') || label.includes('shirt')
+  })
+  if (!field) return null
+
+  const raw =
+    field?.dropdown?.value ??
+    field?.text?.value ??
+    field?.numeric?.value ??
+    null
+
+  const value = String(raw ?? '').trim()
+  if (!value) return null
+
+  const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+  if (['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL'].includes(normalized)) {
+    return normalized
+  }
+
+  // Tolerate "2XL" / "3XL" style values.
+  const numeric = normalized.match(/^([2-5])XL$/)
+  if (numeric) return 'X'.repeat(Number(numeric[1])) + 'L'
+
+  return value
+}
+
 function buildRegistrationNote(sessionId: string, label: string, quantity: number) {
   const passLabel = quantity === 1 ? '1 pass' : String(quantity) + ' passes'
   return 'Stripe order ' + sessionId + ' - ' + passLabel + ' - ' + label
@@ -155,7 +191,7 @@ async function upsertSponsorFulfillment({
   const benefits = sponsorBenefitsFromCents(sponsorTierDollars * 100, 'Stripe')
   const notes =
     benefits.notes +
-    ' Shirt size and anonymity preference not collected at Stripe checkout - confirm with sponsor directly.'
+    ' Anonymity preference not collected at Stripe checkout - confirm with sponsor directly.'
 
   const existing = await prisma.sponsorFulfillment.findFirst({
     where: { memberId, eventYear: CURRENT_YEAR },
@@ -271,6 +307,7 @@ export async function processStripeEligibleOrders(dryRun: boolean, logId?: strin
     }
 
     const customerDetails = session.customer_details || {}
+    const orderShirtSize = shirtSizeFromStripeSession(session)
     const email = String(customerDetails.email || '').trim().toLowerCase()
     const phone = String(customerDetails.phone || '').trim() || null
     const { firstName, lastName } = splitName(customerDetails.name)
@@ -454,7 +491,7 @@ export async function processStripeEligibleOrders(dryRun: boolean, logId?: strin
           paymentStatus: 'Paid',
           amountPaidCents: Number.isFinite(amountPaidCents) ? amountPaidCents : null,
           purchasedAt: session.created ? new Date(session.created * 1000) : null,
-          shirtSize: null as string | null,
+          shirtSize: orderShirtSize,
           pinIncluded: classification.pinIncluded || false,
           pinQuantity: classification.pinIncluded ? 1 : 0,
           sponsorNeedsReview: classification.type === 'sponsor',
