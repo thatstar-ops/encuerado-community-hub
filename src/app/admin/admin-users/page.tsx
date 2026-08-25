@@ -32,7 +32,7 @@ export default async function AdminUsersPage() {
             <Link href="/imports" className="rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white hover:bg-[#D11A22]">Import Attendees CSV</Link>
             <Link href="/api/admin/members/export" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Export Attendees CSV</Link>
             <Link href="/api/admin/volunteers/export" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Export Volunteers CSV</Link>
-            <Link href="/api/admin/shirt-size-summary/export" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Export Shirt Size Summary CSV</Link>
+            <Link href="/api/admin/shirt-size-summary/export" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Export Shirt Order Summary CSV</Link>
             <Link href="/reports" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Reports</Link>
             <Link href="/api/admin/contacts/export" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Full Contact Export</Link>
             <Link href="/admin/sponsors/new" className="rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white hover:bg-[#D11A22]">Add Sponsor / Attendee (Manual)</Link>
