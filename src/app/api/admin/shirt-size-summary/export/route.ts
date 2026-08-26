@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import {
+  normalizeSize,
+  parseSizes,
+  seatsForPurchase,
+  SHIRT_SIZES,
+} from '@/lib/shirt-sizes'
 
 // Shirt sizes live in three unrelated places and nothing else adds them up:
 //   1. VolunteerProfile.shirtSize      - but only volunteers who worked enough shifts
@@ -11,7 +17,7 @@ import { prisma } from '@/lib/prisma'
 // package includes 2 shirts) but checkout only ever asked ONE size per order.
 // Every seat past the first is therefore a real shirt with no size attached -
 // counted here as "Unknown" rather than silently dropped.
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL'] as const
+const SIZES = SHIRT_SIZES
 
 // A volunteer earns a shirt at this many active shifts. Override per request
 // with ?minShifts=2 if the policy changes.
@@ -31,35 +37,6 @@ function emptyTally(): Record<string, number> {
   const tally: Record<string, number> = {}
   for (const size of SIZES) tally[size] = 0
   return tally
-}
-
-function normalizeSize(value: unknown): string | null {
-  const raw = String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
-  if (!raw) return null
-  if ((SIZES as readonly string[]).includes(raw)) return raw
-  // Tolerate "2XL" / "3XL" style answers.
-  const numeric = raw.match(/^([2-5])XL$/)
-  if (numeric) {
-    const expanded = 'X'.repeat(Number(numeric[1])) + 'L'
-    if ((SIZES as readonly string[]).includes(expanded)) return expanded
-  }
-  if (raw === 'SMALL') return 'S'
-  if (raw === 'MEDIUM') return 'M'
-  if (raw === 'LARGE') return 'L'
-  return null
-}
-
-function toSizeList(value: unknown): string[] {
-  let list: unknown = value
-  if (typeof list === 'string') {
-    try {
-      list = JSON.parse(list)
-    } catch {
-      list = [list]
-    }
-  }
-  if (!Array.isArray(list)) list = list ? [list] : []
-  return (list as unknown[]).map(normalizeSize).filter((s): s is string => Boolean(s))
 }
 
 export async function GET(request: Request) {
@@ -126,20 +103,20 @@ export async function GET(request: Request) {
   let passUnknown = 0
 
   for (const pass of passes) {
-    const seats = Math.max(1, Number(pass.passCount) || 1)
+    const seats = seatsForPurchase(pass.passCount)
     passSeats += seats
 
-    const size = normalizeSize(pass.shirtSize)
-    if (size) passTally[size]++
+    const sizes = parseSizes(pass.shirtSize)
+    for (const size of sizes) passTally[size]++
 
-    const gap = seats - (size ? 1 : 0)
+    const gap = seats - sizes.length
     if (gap > 0) {
       passUnknown += gap
       missing.push([
         pass.purchaseType || 'Pass',
         `${pass.member.firstName} ${pass.member.lastName}`,
         pass.member.email,
-        `${seats} seat(s), ${size ? 1 : 0} size known, ${gap} missing`,
+        `${seats} seat(s), ${sizes.length} size(s) known, ${gap} missing`,
       ])
     }
   }
@@ -162,7 +139,7 @@ export async function GET(request: Request) {
     const owed = Number(sponsor.shirtCount) || 0
     sponsorOwed += owed
 
-    const sizes = toSizeList(sponsor.shirtSizes)
+    const sizes = parseSizes(sponsor.shirtSizes)
     for (const size of sizes) sponsorTally[size]++
 
     const gap = owed - sizes.length

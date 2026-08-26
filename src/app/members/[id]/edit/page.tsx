@@ -2,6 +2,13 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getCurrentAdmin } from '@/lib/auth'
+import {
+  formatSizes,
+  normalizeSize,
+  parseSizes,
+  seatsForPurchase,
+  SHIRT_SIZES,
+} from '@/lib/shirt-sizes'
 import ActionNotice from '@/components/admin/ActionNotice'
 import {
   archiveMember,
@@ -42,6 +49,46 @@ async function updateMember(memberId: string, formData: FormData) {
     },
   })
 
+  // ---- Shirt sizes ----
+  // Stored across three different tables. One record can owe more than one
+  // shirt (a VIP pass seats 2, a sponsor package includes several), so those
+  // are kept as a comma-separated list - see src/lib/shirt-sizes.ts.
+  if (formData.has('volunteerShirtSize')) {
+    const volunteerProfile = await prisma.volunteerProfile.findUnique({
+      where: { memberId },
+      select: { id: true },
+    })
+    if (volunteerProfile) {
+      await prisma.volunteerProfile.update({
+        where: { id: volunteerProfile.id },
+        data: { shirtSize: normalizeSize(formData.get('volunteerShirtSize')) },
+      })
+    }
+  }
+
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith('passSizes__')) continue
+    // Scoped by memberId as well as id so a tampered form field cannot reach
+    // another attendee's purchase.
+    await prisma.ticketPurchase.updateMany({
+      where: { id: key.slice('passSizes__'.length), memberId },
+      data: { shirtSize: formatSizes(parseSizes(value)) },
+    })
+  }
+
+  if (formData.has('sponsorSizes')) {
+    const fulfillments = await prisma.sponsorFulfillment.findMany({
+      where: { memberId },
+      select: { id: true },
+    })
+    for (const fulfillment of fulfillments) {
+      await prisma.sponsorFulfillment.update({
+        where: { id: fulfillment.id },
+        data: { shirtSizes: parseSizes(formData.get('sponsorSizes')) },
+      })
+    }
+  }
+
   redirect('/members')
 }
 
@@ -67,6 +114,11 @@ export default async function EditMemberPage({
     where: { id },
     include: {
       volunteerProfile: true,
+      ticketPurchases: {
+        where: { purchaseType: { in: ['Weekend Pass', 'VIP Pass'] } },
+        orderBy: { purchasedAt: 'asc' },
+      },
+      sponsorFulfillments: true,
       _count: {
         select: {
           registrations: true,
@@ -196,6 +248,94 @@ export default async function EditMemberPage({
                 className={inputClass}
               />
             </label>
+
+            <div className="grid gap-4 rounded-xl border border-[#3A1215] bg-[#151111] p-5">
+              <div>
+                <h2 className="text-xl font-black uppercase tracking-wide text-[#B11218]">
+                  Shirt sizes
+                </h2>
+                <p className="mt-1 text-sm text-[#B7B7B7]">
+                  Sizes are held separately for volunteering, passes and sponsorship. Where
+                  someone is owed more than one shirt, list every size separated by commas -
+                  for example <span className="font-bold text-white">L, XL</span>.
+                </p>
+              </div>
+
+              {member.volunteerProfile && (
+                <label className="grid gap-2">
+                  <span className="text-base font-bold text-white">Volunteer shirt</span>
+                  <select
+                    name="volunteerShirtSize"
+                    defaultValue={member.volunteerProfile.shirtSize || ''}
+                    className={inputClass}
+                  >
+                    <option value="">- not set -</option>
+                    {SHIRT_SIZES.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {member.ticketPurchases.map((purchase) => {
+                const seats = seatsForPurchase(purchase.passCount)
+                const known = parseSizes(purchase.shirtSize)
+                const missing = seats - known.length
+                return (
+                  <label key={purchase.id} className="grid gap-2">
+                    <span className="text-base font-bold text-white">
+                      {purchase.purchaseType} - {seats} shirt{seats === 1 ? '' : 's'}
+                      {missing > 0 && (
+                        <span className="ml-2 rounded-full bg-yellow-400 px-2 py-1 text-xs font-black text-black">
+                          {missing} missing
+                        </span>
+                      )}
+                    </span>
+                    <input
+                      name={`passSizes__${purchase.id}`}
+                      defaultValue={known.join(', ')}
+                      placeholder={seats > 1 ? 'e.g. L, XL' : 'e.g. L'}
+                      className={inputClass}
+                    />
+                  </label>
+                )
+              })}
+
+              {member.sponsorFulfillments.map((fulfillment) => {
+                const known = parseSizes(fulfillment.shirtSizes)
+                const missing = fulfillment.shirtCount - known.length
+                return (
+                  <label key={fulfillment.id} className="grid gap-2">
+                    <span className="text-base font-bold text-white">
+                      {fulfillment.sponsorTier} sponsor - {fulfillment.shirtCount} shirt
+                      {fulfillment.shirtCount === 1 ? '' : 's'}
+                      {missing > 0 && (
+                        <span className="ml-2 rounded-full bg-yellow-400 px-2 py-1 text-xs font-black text-black">
+                          {missing} missing
+                        </span>
+                      )}
+                    </span>
+                    <input
+                      name="sponsorSizes"
+                      defaultValue={known.join(', ')}
+                      placeholder="e.g. L, XL"
+                      className={inputClass}
+                    />
+                  </label>
+                )
+              })}
+
+              {!member.volunteerProfile &&
+                member.ticketPurchases.length === 0 &&
+                member.sponsorFulfillments.length === 0 && (
+                  <p className="text-sm text-[#8F8F8F]">
+                    No volunteer profile, weekend/VIP pass or sponsorship on this attendee, so
+                    there is no shirt to record a size for.
+                  </p>
+                )}
+            </div>
 
             <button
               type="submit"
