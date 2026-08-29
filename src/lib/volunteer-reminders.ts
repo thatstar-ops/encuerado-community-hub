@@ -1,6 +1,7 @@
 import { prisma } from './prisma'
 import { getFromEmail, getResendClient } from './resend-client'
 import { withRetry } from './with-retry'
+import { getDailyEmailBudget } from './email-budget'
 import { eventDateTimeLocalToUtcDate, getEventDateKey, EVENT_TIME_ZONE } from './timezone'
 import {
   ensureShiftReminderSettings,
@@ -102,23 +103,71 @@ function relativeTimeFor(daysUntilShift: number) {
   return `in ${daysUntilShift} days`
 }
 
-async function sendShiftReminderEmail(
-  assignment: { id: string; member: AssignmentForReminder['member']; shift: ShiftForReminder },
+type ReminderEntry = { assignmentId: string; shift: ShiftForReminder }
+
+/** One shift rendered as plain text for the {{shiftList}} placeholder. */
+function formatShiftBlock(
+  shift: ShiftForReminder,
+  todayKey: string,
+  index: number,
+  total: number
+) {
+  const daysUntil = calendarDayDiff(todayKey, getEventDateKey(shift.startsAt))
+  const lines = [
+    `${total > 1 ? `${index + 1}. ` : ''}${shift.title} (${shift.event.title})`,
+    `When: ${formatShiftTime(shift.startsAt)} (${relativeTimeFor(daysUntil)})`,
+    `Where: ${shift.location || 'TBC'}`,
+  ]
+  if (shift.role?.description) {
+    lines.push('')
+    lines.push('What you will be doing:')
+    lines.push(shift.role.description)
+  }
+  return lines.join('\n')
+}
+
+/**
+ * ONE email per volunteer, listing every shift they are being reminded about.
+ *
+ * Previously this sent one email per assignment, so a volunteer with three
+ * shifts got three near-identical emails - noisy for them, and with several
+ * events in the same week it pushed the daily send count towards Resend's
+ * free-tier cap of 100/day. Grouping by person collapses ~116 assignments
+ * into ~46 emails.
+ *
+ * The soonest shift drives the subject line and the "relativeTime" wording.
+ * The old single-shift placeholders still resolve (against that soonest
+ * shift) so a template that has not been updated keeps working instead of
+ * printing raw {{tokens}}.
+ */
+async function sendVolunteerReminderEmail(
+  member: AssignmentForReminder['member'],
+  entries: ReminderEntry[],
   settings: ShiftReminderSettings,
   todayKey: string
 ) {
-  const { member, shift } = assignment
-  const shiftDateKey = getEventDateKey(shift.startsAt)
-  const daysUntilShift = calendarDayDiff(todayKey, shiftDateKey)
+  const sorted = [...entries].sort(
+    (a, b) => a.shift.startsAt.getTime() - b.shift.startsAt.getTime()
+  )
+  const next = sorted[0].shift
+  const daysUntilNext = calendarDayDiff(todayKey, getEventDateKey(next.startsAt))
+
+  const shiftList = sorted
+    .map((entry, i) => formatShiftBlock(entry.shift, todayKey, i, sorted.length))
+    .join('\n\n- - - - -\n\n')
 
   const values = {
     firstName: member.firstName,
-    shiftTitle: shift.title,
-    eventTitle: shift.event.title,
-    shiftTime: formatShiftTime(shift.startsAt),
-    location: shift.location || '',
-    roleDescription: shift.role?.description || '',
-    relativeTime: relativeTimeFor(daysUntilShift),
+    shiftCount: String(sorted.length),
+    shiftList,
+    shiftTitle: sorted.length === 1 ? next.title : `${sorted.length} shifts`,
+    eventTitle: next.event.title,
+    shiftTime: formatShiftTime(next.startsAt),
+    location: next.location || '',
+    // Falls back to the full list when there is more than one shift, so an
+    // un-updated template still shows every shift rather than just one.
+    roleDescription: sorted.length === 1 ? next.role?.description || '' : shiftList,
+    relativeTime: relativeTimeFor(daysUntilNext),
   }
 
   const subject = renderReminderSubject(settings.subjectTemplate, values)
@@ -144,7 +193,10 @@ async function sendShiftReminderEmail(
     return true
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Shift reminder failed.'
-    console.error('[sendShiftReminderEmail]', errorMessage, { assignmentId: assignment.id })
+    console.error('[sendVolunteerReminderEmail]', errorMessage, {
+      memberId: member.id,
+      shifts: sorted.length,
+    })
 
     await prisma.emailLog.create({
       data: { memberId: member.id, status: 'Failed', error: errorMessage, source: 'ShiftReminder' },
@@ -152,6 +204,44 @@ async function sendShiftReminderEmail(
 
     return false
   }
+}
+
+/** Group eligible assignments by volunteer, soonest shift first. */
+function groupByVolunteer(
+  shifts: Array<ShiftForReminder & { assignments: AssignmentForReminder[] }>
+) {
+  const byMember = new Map<
+    string,
+    { member: AssignmentForReminder['member']; entries: ReminderEntry[] }
+  >()
+  let skipped = 0
+
+  for (const shift of shifts) {
+    for (const assignment of shift.assignments) {
+      if (!isEligible(assignment.member)) {
+        skipped++
+        continue
+      }
+      const existing = byMember.get(assignment.member.id)
+      if (existing) {
+        existing.entries.push({ assignmentId: assignment.id, shift })
+      } else {
+        byMember.set(assignment.member.id, {
+          member: assignment.member,
+          entries: [{ assignmentId: assignment.id, shift }],
+        })
+      }
+    }
+  }
+
+  const soonest = (entries: ReminderEntry[]) =>
+    Math.min(...entries.map((entry) => entry.shift.startsAt.getTime()))
+
+  const recipients = [...byMember.values()].sort(
+    (a, b) => soonest(a.entries) - soonest(b.entries)
+  )
+
+  return { recipients, skipped }
 }
 
 function isEligible(member: AssignmentForReminder['member']) {
@@ -174,11 +264,13 @@ async function runTouchpoint({
   todayKey,
   daysBefore,
   sentField,
+  budget,
 }: {
   settings: ShiftReminderSettings
   todayKey: string
   daysBefore: number
   sentField: 'reminderSentAt' | 'secondReminderSentAt'
+  budget: { remaining: number }
 }) {
   const clamped = Math.max(0, Math.min(60, Math.round(daysBefore)))
   const windowStart = eventDateTimeLocalToUtcDate(`${todayKey}T00:00`)
@@ -191,6 +283,7 @@ async function runTouchpoint({
       archivedAt: null,
       cancelledAt: null,
     },
+    orderBy: { startsAt: 'asc' },
     select: {
       ...SHIFT_SELECT,
       assignments: {
@@ -200,36 +293,41 @@ async function runTouchpoint({
     },
   })
 
+  const { recipients, skipped } = groupByVolunteer(shifts)
+
   let sent = 0
-  let skipped = 0
   let failed = 0
+  let deferred = 0
 
-  for (const shift of shifts) {
-    for (const assignment of shift.assignments) {
-      if (!isEligible(assignment.member)) {
-        skipped++
-        continue
-      }
+  for (const recipient of recipients) {
+    // Recipients are ordered soonest-shift-first, so when the daily budget
+    // runs out it is the least urgent reminders that get held over.
+    if (budget.remaining <= 0) {
+      deferred++
+      continue
+    }
 
-      const ok = await sendShiftReminderEmail(
-        { id: assignment.id, member: assignment.member, shift },
-        settings,
-        todayKey
-      )
+    const ok = await sendVolunteerReminderEmail(
+      recipient.member,
+      recipient.entries,
+      settings,
+      todayKey
+    )
 
-      if (ok) {
-        sent++
-        await prisma.volunteerAssignment.update({
-          where: { id: assignment.id },
-          data: { [sentField]: new Date() },
-        })
-      } else {
-        failed++
-      }
+    if (ok) {
+      budget.remaining--
+      sent++
+      // Stamp every assignment covered by that one email.
+      await prisma.volunteerAssignment.updateMany({
+        where: { id: { in: recipient.entries.map((entry) => entry.assignmentId) } },
+        data: { [sentField]: new Date() },
+      })
+    } else {
+      failed++
     }
   }
 
-  return { shiftsChecked: shifts.length, sent, failed, skipped }
+  return { shiftsChecked: shifts.length, sent, failed, skipped, deferred }
 }
 
 /**
@@ -259,29 +357,23 @@ async function runManualBlast(settings: ShiftReminderSettings, todayKey: string)
     },
   })
 
+  const { recipients, skipped } = groupByVolunteer(shifts)
+
   let sent = 0
-  let skipped = 0
   let failed = 0
 
-  for (const shift of shifts) {
-    for (const assignment of shift.assignments) {
-      if (!isEligible(assignment.member)) {
-        skipped++
-        continue
-      }
-
-      const ok = await sendShiftReminderEmail(
-        { id: assignment.id, member: assignment.member, shift },
-        settings,
-        todayKey
-      )
-
-      if (ok) sent++
-      else failed++
-    }
+  for (const recipient of recipients) {
+    const ok = await sendVolunteerReminderEmail(
+      recipient.member,
+      recipient.entries,
+      settings,
+      todayKey
+    )
+    if (ok) sent++
+    else failed++
   }
 
-  return { shiftsChecked: shifts.length, sent, failed, skipped }
+  return { shiftsChecked: shifts.length, sent, failed, skipped, deferred: 0 }
 }
 
 /**
@@ -302,23 +394,43 @@ export async function processShiftReminders(options?: { mode?: 'manual' }) {
     return runManualBlast(settings, todayKey)
   }
 
-  const first = await runTouchpoint({
-    settings,
-    todayKey,
-    daysBefore: settings.daysBefore,
-    sentField: 'reminderSentAt',
-  })
+  // Campaigns, reminders and transactional email all draw on the same Resend
+  // free-tier allowance (100/day). Campaigns already budget themselves; this
+  // makes reminders do the same instead of sending until Resend rejects them.
+  const snapshot = await getDailyEmailBudget()
+  const budget = { remaining: snapshot.remaining }
+
+  // The final "your shift is tomorrow" touchpoint runs first: if the budget
+  // runs out, the reminder that matters most is the one already sent.
   const second = await runTouchpoint({
     settings,
     todayKey,
     daysBefore: settings.secondDaysBefore,
     sentField: 'secondReminderSentAt',
+    budget,
   })
+  const first = await runTouchpoint({
+    settings,
+    todayKey,
+    daysBefore: settings.daysBefore,
+    sentField: 'reminderSentAt',
+    budget,
+  })
+
+  const deferred = first.deferred + second.deferred
+  if (deferred > 0) {
+    console.warn(
+      `[shiftReminders] ${deferred} volunteer(s) held over to tomorrow - daily email budget reached ` +
+        `(limit ${snapshot.limit}, campaigns reserved ${snapshot.campaignReserved}, other sends ${snapshot.otherSent}).`
+    )
+  }
 
   return {
     shiftsChecked: first.shiftsChecked + second.shiftsChecked,
     sent: first.sent + second.sent,
     failed: first.failed + second.failed,
     skipped: first.skipped + second.skipped,
+    deferred,
+    budgetRemaining: budget.remaining,
   }
 }
