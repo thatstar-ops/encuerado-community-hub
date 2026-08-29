@@ -32,6 +32,8 @@ export default async function AdminUsersPage() {
             <Link href="/imports" className="rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white hover:bg-[#D11A22]">Import Attendees CSV</Link>
             <Link href="/api/admin/members/export" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Export Attendees CSV</Link>
             <Link href="/api/admin/volunteers/export" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Export Volunteers CSV</Link>
+            <Link href="/api/admin/volunteer-schedule/export?view=shift" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Export Shift Schedule CSV (by time)</Link>
+            <Link href="/api/admin/volunteer-schedule/export?view=volunteer" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Export Volunteer Schedule CSV (by person)</Link>
             <Link href="/admin/shirt-sizes" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Fill Missing Shirt Sizes</Link>
             <Link href="/api/admin/shirt-size-summary/export" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Export Shirt Order Summary CSV</Link>
             <Link href="/reports" className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Reports</Link>
