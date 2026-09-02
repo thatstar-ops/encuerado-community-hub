@@ -58,9 +58,8 @@ export default async function ShiftsPage({
         ? { OR: [{ archivedAt: { not: null } }, { cancelledAt: { not: null } }, { status: 'Cancelled' }, { event: { is: { archivedAt: { not: null } } } }, { event: { is: { cancelledAt: { not: null } } } }] }
         : { archivedAt: null, cancelledAt: null, NOT: { status: 'Cancelled' }, event: { is: { archivedAt: null, cancelledAt: null, NOT: { status: 'Cancelled' } } } }
 
-  if (shiftStatusFilter) {
-    where.status = shiftStatusFilter
-  }
+  // shiftStatus is applied after fetching (below) so the button labels can show
+  // honest counts for whichever Active/Archived/All tab is selected.
 
   const allShifts = await prisma.volunteerShift.findMany({
     where,
@@ -68,12 +67,20 @@ export default async function ShiftsPage({
     orderBy: { startsAt: 'asc' },
   })
 
-  const shifts = needsVolunteersOnly
-    ? allShifts.filter((shift) => {
-        const activeCount = shift.assignments.filter((a) => ACTIVE_ASSIGNMENT_STATUSES.includes(a.status)).length
-        return shift.status === 'Open' && activeCount < shift.neededCount
-      })
-    : allShifts
+  const activeAssignmentCount = (shift: (typeof allShifts)[number]) =>
+    shift.assignments.filter((a) => ACTIVE_ASSIGNMENT_STATUSES.includes(a.status)).length
+
+  const isUnderStaffed = (shift: (typeof allShifts)[number]) =>
+    shift.status === 'Open' && activeAssignmentCount(shift) < shift.neededCount
+
+  // Counts for the button labels, so a filter that would change nothing is
+  // obvious before you click it rather than looking broken afterwards.
+  const needsCount = allShifts.filter(isUnderStaffed).length
+  const openCount = allShifts.filter((shift) => shift.status === 'Open').length
+
+  const shifts = allShifts
+    .filter((shift) => (needsVolunteersOnly ? isUnderStaffed(shift) : true))
+    .filter((shift) => (shiftStatusFilter ? shift.status === shiftStatusFilter : true))
 
   const isCheckIn = admin.role === 'CHECK_IN'
   const shiftDetailPath = (shiftId: string) => (isCheckIn ? `/shifts/${shiftId}/check-in` : `/shifts/${shiftId}/edit`)
@@ -120,14 +127,20 @@ export default async function ShiftsPage({
             <span className="mx-1 self-center text-[#3A1215]">|</span>
 
             <Link
-              href={filterQuery({ needs: '1' })}
+              href={filterQuery({
+              needs: needsVolunteersOnly ? '' : '1',
+              shiftStatus: shiftStatusFilter || '',
+            })}
               className={needsVolunteersOnly ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white'}
             >
               Needs Volunteers
             </Link>
 
             <Link
-              href={filterQuery({ shiftStatus: 'Open' })}
+              href={filterQuery({
+              needs: needsVolunteersOnly ? '1' : '',
+              shiftStatus: shiftStatusFilter === 'Open' ? '' : 'Open',
+            })}
               className={shiftStatusFilter === 'Open' && !needsVolunteersOnly ? 'rounded-lg bg-[#B11218] px-4 py-2 text-sm font-bold text-white' : 'rounded-lg border border-[#3A1215] px-4 py-2 text-sm font-bold text-white hover:border-[#B11218] hover:text-[#B11218]'}
             >
               Open Only
