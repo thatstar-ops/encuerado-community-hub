@@ -15,6 +15,9 @@ function formatDate(date: Date | null) {
 export default async function ReportsPage() {
   const admin = await getCurrentAdmin()
   if (!admin) redirect('/admin/login?redirect=/reports')
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const events = await prisma.event.findMany({
     include: {

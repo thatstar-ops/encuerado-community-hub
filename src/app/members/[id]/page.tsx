@@ -45,6 +45,9 @@ export default async function MemberDetailPage({
   const queryParams = searchParams ? await searchParams : {}
   const admin = await getCurrentAdmin()
   if (!admin) redirect(`/admin/login?redirect=/members/${id}`)
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const member = await prisma.member.findUnique({
     where: { id },

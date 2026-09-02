@@ -30,6 +30,9 @@ async function updateEvent(eventId: string, formData: FormData) {
   if (!admin) {
     redirect(`/admin/login?redirect=/events/${eventId}/edit`)
   }
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const title = String(formData.get('title') || '').trim()
   const description = String(formData.get('description') || '').trim()
@@ -77,6 +80,9 @@ export default async function EditEventPage({
   if (!admin) {
     redirect(`/admin/login?redirect=/events/${id}/edit`)
   }
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const event = await prisma.event.findUnique({
     where: { id },

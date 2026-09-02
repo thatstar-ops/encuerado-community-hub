@@ -21,6 +21,9 @@ async function updateMember(memberId: string, formData: FormData) {
 
   const admin = await getCurrentAdmin()
   if (!admin) redirect(`/admin/login?redirect=/members/${memberId}/edit`)
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const firstName = String(formData.get('firstName') || '').trim()
   const lastName = String(formData.get('lastName') || '').trim()

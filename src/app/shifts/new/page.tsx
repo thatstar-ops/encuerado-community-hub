@@ -12,6 +12,9 @@ async function createShift(formData: FormData) {
   if (!admin) {
     redirect('/admin/login?redirect=/shifts/new')
   }
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const eventId = String(formData.get('eventId') || '').trim()
   const roleId = String(formData.get('roleId') || '').trim()
@@ -92,6 +95,9 @@ export default async function NewShiftPage({
   if (!admin) {
     redirect('/admin/login?redirect=/shifts/new')
   }
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const params = searchParams ? await searchParams : {}
   const defaultStartsAt = params.startsAt || ''

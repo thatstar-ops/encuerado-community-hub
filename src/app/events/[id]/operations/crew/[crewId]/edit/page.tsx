@@ -16,6 +16,9 @@ export default async function EditCrewMemberPage({
 }) {
   const admin = await getCurrentAdmin()
   if (!admin) redirect('/admin/login?redirect=/admin/operations')
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const { id: eventId, crewId } = await params
 

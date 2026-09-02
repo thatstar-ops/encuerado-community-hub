@@ -26,6 +26,9 @@ async function updateShift(shiftId: string, formData: FormData) {
 
   const admin = await getCurrentAdmin()
   if (!admin) redirect(`/admin/login?redirect=/shifts/${shiftId}/edit`)
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const eventId = String(formData.get('eventId') || '').trim()
   const roleId = String(formData.get('roleId') || '').trim()

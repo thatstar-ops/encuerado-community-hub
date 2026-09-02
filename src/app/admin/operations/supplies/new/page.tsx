@@ -12,6 +12,9 @@ export default async function NewSupplyPage() {
 
   redirectVotingAdminAwayFromGeneralAdmin(admin)
   if (!admin) redirect('/admin/login?redirect=/admin/operations/supplies/new')
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   // ✅ Bind returnTo to '/admin/operations'
   const createSupply = createOperationsSupply.bind(null, '/admin/operations')

@@ -17,6 +17,9 @@ export default async function EditContactPage({
 
   redirectVotingAdminAwayFromGeneralAdmin(admin)
   if (!admin) redirect('/admin/login?redirect=/admin/operations')
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const { id } = await params
   const contact = await prisma.operationsContact.findUnique({ where: { id } })

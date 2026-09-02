@@ -14,6 +14,9 @@ async function updateRegistration(
 
   const admin = await getCurrentAdmin()
   if (!admin) redirect(`/admin/login?redirect=/events/${eventId}/registrations/${registrationId}/edit`)
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const selectedStatus = String(formData.get('status') || 'Registered').trim()
   const checkedIn = formData.get('checkedIn') === 'on'

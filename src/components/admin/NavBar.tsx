@@ -22,7 +22,7 @@ export default function NavBar({
   const checkInLinks = [
     { href: '/admin', label: 'Dashboard' },
     { href: '/event-check-in', label: 'Event Check-in' },
-    { href: '/shifts/calendar', label: 'Volunteer Shifts' },
+    { href: '/shifts', label: 'Volunteer Shifts' },
   ]
 
   // Full links for ADMIN / SUPER_ADMIN

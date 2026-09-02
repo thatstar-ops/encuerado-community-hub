@@ -29,6 +29,9 @@ async function createEvent(formData: FormData) {
   if (!admin) {
     redirect('/admin/login?redirect=/events/new')
   }
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const title = String(formData.get('title') || '').trim()
   const description = String(formData.get('description') || '').trim()
@@ -68,6 +71,9 @@ export default async function NewEventPage() {
   if (!admin) {
     redirect('/admin/login?redirect=/events/new')
   }
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   return (
     <main className="min-h-screen bg-black p-8 text-white">

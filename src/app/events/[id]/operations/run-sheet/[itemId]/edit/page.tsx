@@ -24,6 +24,9 @@ export default async function EditRunSheetItemPage({
 }) {
   const admin = await getCurrentAdmin()
   if (!admin) redirect('/admin/login?redirect=/admin/operations')
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const { id: eventId, itemId } = await params
   const event = await prisma.event.findUnique({ where: { id: eventId } })

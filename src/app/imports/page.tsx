@@ -7,6 +7,9 @@ import ImportCsvForm from '@/components/admin/ImportCsvForm'
 export default async function ImportsPage() {
   const admin = await getCurrentAdmin()
   if (!admin) redirect('/admin/login?redirect=/imports')
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const events = await prisma.event.findMany({
     orderBy: { startsAt: 'desc' },

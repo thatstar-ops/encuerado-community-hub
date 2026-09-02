@@ -9,6 +9,9 @@ async function createRegistration(eventId: string, formData: FormData) {
 
   const admin = await getCurrentAdmin()
   if (!admin) redirect(`/admin/login?redirect=/events/${eventId}/registrations/new`)
+  // CHECK_IN accounts are door staff: bounce them back to their own
+  // landing screen rather than the full admin tooling.
+  if (admin.role === 'CHECK_IN') redirect('/admin')
 
   const memberId = String(formData.get('memberId') || '').trim()
   const selectedStatus = String(formData.get('status') || 'Registered').trim()
