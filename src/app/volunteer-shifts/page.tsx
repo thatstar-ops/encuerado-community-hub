@@ -5,6 +5,14 @@ import { prisma } from '@/lib/prisma'
 const EVENT_TIME_ZONE = 'America/Los_Angeles'
 const ACTIVE_VOLUNTEER_ASSIGNMENT_STATUSES = ['Assigned', 'Confirmed', 'Interested']
 
+// Public signup must never offer - or accept - a shift that has already
+// started. Used BOTH in the listing below and inside the server action: a
+// server action is reachable on its own regardless of what the page renders,
+// so hiding a shift in the UI is not by itself a guard.
+function signupCutoff() {
+  return new Date()
+}
+
 function formatDate(date: Date | null) {
   if (!date) return '-'
 
@@ -211,6 +219,7 @@ export default async function VolunteerShiftsPage({
       status: 'Open',
       archivedAt: null,
       cancelledAt: null,
+      startsAt: { gte: signupCutoff() },
     },
     include: {
       event: true,
