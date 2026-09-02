@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getRegistrationPassCount, getRegistrationPassLabel } from '@/lib/registration-pass-count'
 import { getCurrentAdmin } from '@/lib/auth'
+import { passShirtSeats } from '@/lib/shirt-sizes'
 
 const EVENT_TIME_ZONE = 'America/Los_Angeles'
 
@@ -142,7 +143,10 @@ export default async function EventCheckInPage({
       label = 'Individual Ticket'
     }
 
-    const shirtSize = purchases.find((tp: any) => tp.shirtSize)?.shirtSize || null
+    // Comped ($0) passes do not come with a shirt, so don't show a size the
+    // door team would then hand one out for.
+    const shirtSize =
+      purchases.find((tp: any) => tp.shirtSize && passShirtSeats(tp) > 0)?.shirtSize || null
     const hasPin = purchases.some((tp: any) => tp.pinIncluded)
 
     return { label, shirtSize, hasPin }
