@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import {
   normalizeSize,
   parseSizes,
-  seatsForPurchase,
+  passShirtSeats,
   SHIRT_SIZES,
 } from '@/lib/shirt-sizes'
 
@@ -94,6 +94,7 @@ export async function GET(request: Request) {
       shirtSize: true,
       purchaseType: true,
       passCount: true,
+      amountPaidCents: true,
       member: { select: { firstName: true, lastName: true, email: true } },
     },
   })
@@ -103,8 +104,12 @@ export async function GET(request: Request) {
   let passUnknown = 0
 
   for (const pass of passes) {
-    const seats = seatsForPurchase(pass.passCount)
+    const seats = passShirtSeats(pass)
     passSeats += seats
+
+    // Comped ($0) passes earn no shirt, so they contribute nothing to the
+    // order and never appear on the chase list.
+    if (seats === 0) continue
 
     const sizes = parseSizes(pass.shirtSize)
     for (const size of sizes) passTally[size]++

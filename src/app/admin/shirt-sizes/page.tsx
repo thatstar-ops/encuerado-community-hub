@@ -6,7 +6,7 @@ import {
   formatSizes,
   normalizeSize,
   parseSizes,
-  seatsForPurchase,
+  passShirtSeats,
   SHIRT_SIZES,
 } from '@/lib/shirt-sizes'
 
@@ -124,12 +124,15 @@ export default async function ShirtSizeGapsPage({
       shirtSize: true,
       purchaseType: true,
       passCount: true,
+      amountPaidCents: true,
       member: { select: { id: true, firstName: true, lastName: true, email: true } },
     },
   })
 
   for (const pass of passes) {
-    const seats = seatsForPurchase(pass.passCount)
+    // Comped ($0) passes earn no shirt.
+    const seats = passShirtSeats(pass)
+    if (seats === 0) continue
     const known = parseSizes(pass.shirtSize)
     if (known.length >= seats) continue
 

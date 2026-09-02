@@ -75,6 +75,22 @@ function findEventId(eventTitle: string, eventLookup: EventLookup) {
   return eventLookup.byNormalizedTitle.get(normalizeKey(eventTitle))?.id || null
 }
 
+// Stripe only returns customer_details.name when the payment link collects a
+// name or a billing address. Links configured without either send name: null,
+// and those orders used to be skipped forever as "manual review" - the buyer
+// paid, but never appeared in check-in. Falling back to the email local part
+// gets them registered; the note below flags it so the real name can be set
+// on the attendee page.
+function nameFromEmail(email: string): { firstName: string; lastName: string } {
+  const local = String(email || '').split('@')[0] || 'Guest'
+  const cleaned = local.replace(/[._-]+/g, ' ').replace(/\d+/g, ' ').trim()
+  const parts = cleaned.split(/\s+/).filter(Boolean)
+  const cap = (word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  if (parts.length === 0) return { firstName: 'Guest', lastName: local }
+  if (parts.length === 1) return { firstName: cap(parts[0]), lastName: '(name not given)' }
+  return { firstName: cap(parts[0]), lastName: parts.slice(1).map(cap).join(' ') }
+}
+
 function splitName(fullName: string | null | undefined): { firstName: string; lastName: string } {
   const trimmed = String(fullName || '').trim()
   if (!trimmed) return { firstName: '', lastName: '' }
@@ -310,7 +326,17 @@ export async function processStripeEligibleOrders(dryRun: boolean, logId?: strin
     const orderShirtSize = shirtSizeFromStripeSession(session)
     const email = String(customerDetails.email || '').trim().toLowerCase()
     const phone = String(customerDetails.phone || '').trim() || null
-    const { firstName, lastName } = splitName(customerDetails.name)
+    let { firstName, lastName } = splitName(customerDetails.name)
+    let nameWasMissing = false
+
+    // An order with no name at all is still a real, paid order. Only a
+    // missing EMAIL makes it genuinely unprocessable.
+    if (!firstName && email) {
+      const derived = nameFromEmail(email)
+      firstName = derived.firstName
+      lastName = derived.lastName
+      nameWasMissing = true
+    }
 
     if (!email || !firstName) {
       summary.manualReview++
@@ -339,6 +365,9 @@ export async function processStripeEligibleOrders(dryRun: boolean, logId?: strin
             email,
             phone,
             firstYearAttended: CURRENT_YEAR,
+            notes: nameWasMissing
+              ? 'NAME NEEDS CONFIRMING - Stripe checkout did not collect a name, so this one was derived from the email address.'
+              : null,
           },
         })
         memberCreated = true

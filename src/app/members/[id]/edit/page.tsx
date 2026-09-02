@@ -6,7 +6,7 @@ import {
   formatSizes,
   normalizeSize,
   parseSizes,
-  seatsForPurchase,
+  passShirtSeats,
   SHIRT_SIZES,
 } from '@/lib/shirt-sizes'
 import ActionNotice from '@/components/admin/ActionNotice'
@@ -280,7 +280,9 @@ export default async function EditMemberPage({
               )}
 
               {member.ticketPurchases.map((purchase) => {
-                const seats = seatsForPurchase(purchase.passCount)
+                // Comped ($0) passes earn no shirt, so there is nothing to record.
+                const seats = passShirtSeats(purchase)
+                if (seats === 0) return null
                 const known = parseSizes(purchase.shirtSize)
                 const missing = seats - known.length
                 return (

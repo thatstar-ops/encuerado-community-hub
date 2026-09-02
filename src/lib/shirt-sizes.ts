@@ -70,3 +70,19 @@ export function formatSizes(sizes: ShirtSize[]): string | null {
 export function seatsForPurchase(passCount: unknown): number {
   return Math.max(1, Number(passCount) || 1)
 }
+
+/**
+ * How many shirts a pass purchase earns.
+ *
+ * Comped / non-revenue passes ($0) do NOT come with a shirt - only paid
+ * passes do. A VIP pass seats 2 people (passCount) and so earns 2 shirts
+ * when it was paid for.
+ */
+export function passShirtSeats(purchase: {
+  passCount?: unknown
+  amountPaidCents?: number | null
+}): number {
+  const paid = Number(purchase.amountPaidCents)
+  if (!Number.isFinite(paid) || paid <= 0) return 0
+  return seatsForPurchase(purchase.passCount)
+}
