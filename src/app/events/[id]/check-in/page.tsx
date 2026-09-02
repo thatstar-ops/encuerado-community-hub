@@ -147,9 +147,14 @@ export default async function EventCheckInPage({
     // door team would then hand one out for.
     const shirtSize =
       purchases.find((tp: any) => tp.shirtSize && passShirtSeats(tp) > 0)?.shirtSize || null
-    const hasPin = purchases.some((tp: any) => tp.pinIncluded)
+    // Only paid passes carry a pin. A comped ($0) pass gets neither pin nor
+    // shirt, and the door team needs to see that, not a Pin: Yes they would
+    // hand something out for.
+    const hasPin = purchases.some((tp: any) => tp.pinIncluded && passShirtSeats(tp) > 0)
+    const isCompOnly =
+      purchases.length > 0 && purchases.every((tp: any) => passShirtSeats(tp) === 0)
 
-    return { label, shirtSize, hasPin }
+    return { label, shirtSize, hasPin, isCompOnly }
   }
   function getEventYear(date: Date | null) {
     if (!date) return null
@@ -360,6 +365,7 @@ export default async function EventCheckInPage({
                             return (
                               <span className="ml-2 rounded-full bg-[#B11218] px-2 py-1 text-xs font-bold text-white">
                                 {summary.label}
+                                {summary.isCompOnly ? ' - COMP PASS (no shirt/pin)' : ''}
                                 {!hasClaimedFulfillment && summary.shirtSize ? ` Shirt:${summary.shirtSize}` : ''}
                                 {!hasClaimedFulfillment && summary.hasPin ? ' Pin: Yes' : ''}
                               </span>

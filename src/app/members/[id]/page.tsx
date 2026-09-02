@@ -232,13 +232,24 @@ export default async function MemberDetailPage({
                       {tp.purchaseType && <span className="ml-2 text-sm text-[#B7B7B7]">({tp.purchaseType})</span>}
                       {tp.accessLevel && <span className="ml-2 text-sm text-[#B7B7B7]"> - {tp.accessLevel}</span>}
                       {tp.orderNumber && <span className="ml-2 text-sm text-[#8F8F8F]">Order: {tp.orderNumber}</span>}
-                      {tp.shirtSize && passShirtSeats(tp) > 0 && (
-                        <span className="ml-2 text-sm text-[#B7B7B7]">Shirt: {tp.shirtSize}</span>
+                      {/* A comped ($0) pass carries no shirt and no pin, so show one
+                          clear marker rather than entitlements the holder is not owed. */}
+                      {passShirtSeats(tp) === 0 ? (
+                        <span className="ml-2 rounded-full bg-[#2A0E10] px-2 py-1 text-sm font-bold text-[#B7B7B7]">
+                          COMP PASS - no shirt, no pin
+                        </span>
+                      ) : (
+                        <>
+                          {tp.shirtSize && (
+                            <span className="ml-2 text-sm text-[#B7B7B7]">Shirt: {tp.shirtSize}</span>
+                          )}
+                          {tp.pinIncluded && (
+                            <span className="ml-2 text-sm text-[#B7B7B7]">
+                              Pin: Yes{tp.pinQuantity > 1 ? ` (${tp.pinQuantity})` : ''}
+                            </span>
+                          )}
+                        </>
                       )}
-                      {tp.shirtSize && passShirtSeats(tp) === 0 && (
-                        <span className="ml-2 text-sm text-[#8F8F8F]">No shirt (comped pass)</span>
-                      )}
-                      {tp.pinIncluded && <span className="ml-2 text-sm text-[#B7B7B7]">Pin: Yes{tp.pinQuantity > 1 ? ` (${tp.pinQuantity})` : ''}</span>}
                       {tp.sponsorNeedsReview && <span className="ml-2 text-sm text-[#B11218]">Sponsor Review</span>}
                       {tp.paymentStatus && <span className="ml-2 text-sm text-[#8F8F8F]">Payment: {tp.paymentStatus}</span>}
                     </div>
