@@ -12,10 +12,33 @@ export default function NavBar({
 }) {
   const pathname = usePathname()
 
-  // Hide the normal admin banner on contest voting pages.
-  // Voting admin should only see the voting screens, not the full admin nav.
+  // Contest voting runs as a kiosk, so the full admin nav stays hidden here -
+  // but returning null left everyone stranded with no way back and no way to
+  // log out. A slim bar keeps the kiosk clean while still offering both. A
+  // VOTING-role user who taps "Leave voting" is simply redirected back by
+  // redirectVotingAdminAwayFromGeneralAdmin, so no admin page is exposed.
   if (pathname?.startsWith('/admin/contest-voting')) {
-    return null
+    return (
+      <nav className="border-b border-[#2A0E10] bg-[#0B0B0B] px-6 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <Link
+            href="/admin"
+            className="text-sm font-bold text-[#B11218] hover:text-[#D11A22]"
+          >
+            &larr; Leave voting
+          </Link>
+
+          <form action="/logout" method="post">
+            <button
+              type="submit"
+              className="rounded-lg border border-[#B11218] px-4 py-2 text-sm font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white"
+            >
+              Logout
+            </button>
+          </form>
+        </div>
+      </nav>
+    )
   }
 
   // Links for CHECK_IN role – only check-in essentials
