@@ -17,9 +17,20 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 const APPLY = process.argv.includes('--apply')
 
-// All times are America/Los_Angeles. September 2026 is PDT (UTC-7).
-const PDT_OFFSET_HOURS = 7
-const at = (localIso) => new Date(Date.parse(`${localIso}:00Z`) + PDT_OFFSET_HOURS * 3600_000)
+// Times below are the Pacific wall-clock times from the schedule.
+//
+// IMPORTANT - this app stores run sheet times "naive": the Add Item form takes
+// a datetime-local value and saves it as-if-UTC, and the operations page
+// formats it back with no timeZone set (so, UTC on Vercel). Typed items
+// therefore round-trip and look correct. Storing a genuinely-correct UTC
+// instant here would display 7 hours late, so we match the app's convention
+// and store the wall-clock time verbatim.
+//
+// There is a real timezone bug underneath this - worth fixing after the
+// season by setting timeZone: 'America/Los_Angeles' on the operations page
+// formatter AND converting on input. Do not change one without the other.
+
+const at = (localIso) => new Date(`${localIso}:00Z`)
 
 // [ localTime, title, owner, location, notes ]
 const SHEETS = [

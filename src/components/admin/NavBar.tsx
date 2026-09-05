@@ -46,6 +46,7 @@ export default function NavBar({
     { href: '/admin', label: 'Dashboard' },
     { href: '/event-check-in', label: 'Event Check-in' },
     { href: '/shifts', label: 'Volunteer Shifts' },
+    { href: '/shifts/volunteer-check-in', label: 'Volunteer Check-in' },
   ]
 
   // Full links for ADMIN / SUPER_ADMIN
@@ -56,6 +57,7 @@ export default function NavBar({
     { href: '/members', label: 'Attendees' },
     { href: '/admin/volunteers', label: 'Volunteers' },
     { href: '/shifts', label: 'Volunteer Shifts' },
+    { href: '/shifts/volunteer-check-in', label: 'Volunteer Check-in' },
     { href: '/admin/operations', label: 'Event Operations' },
     { href: '/admin/campaigns', label: 'Email Campaigns' },
     { href: '/admin/contest-voting', label: 'Voting' },

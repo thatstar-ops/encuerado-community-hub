@@ -109,6 +109,7 @@ export default async function ShiftsPage({
               <p className="mt-3 text-lg text-[#B7B7B7]">Manage volunteer shift needs, coverage, status, and check-in.</p>
             </div>
             <div className="flex items-center gap-4">
+              <Link href="/shifts/volunteer-check-in" className="rounded-lg bg-[#B11218] px-5 py-3 text-base font-bold text-white hover:bg-[#D11A22]">Volunteer Check-in</Link>
               <Link href="/shifts/calendar" className="rounded-lg border border-[#B11218] px-5 py-3 text-base font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Calendar View</Link>
               {!isCheckIn && <Link href="/shifts/new" className="rounded-lg bg-[#B11218] px-5 py-3 text-base font-bold text-white hover:bg-[#D11A22]">Add Shift</Link>}
               <div className="rounded-xl border border-[#3A1215] bg-[#151111] px-5 py-4 text-center">
