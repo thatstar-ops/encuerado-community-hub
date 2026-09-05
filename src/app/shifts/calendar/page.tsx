@@ -117,13 +117,14 @@ export default async function ShiftCalendarPage({
   })
 
   const isCheckIn = admin.role === 'CHECK_IN'
-  const shiftDetailPath = (shiftId: string) => (isCheckIn ? `/shifts/${shiftId}/check-in` : `/shifts/${shiftId}/edit`)
+  const shiftDetailPath = (shiftId: string) => (isCheckIn ? `/shifts/volunteer-check-in?shift=${shiftId}` : `/shifts/${shiftId}/edit`)
 
   return (
     <main className="min-h-screen bg-black p-8 text-white">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link href="/shifts" className="text-base font-semibold text-[#B11218] hover:text-[#D11A22]">← Back to shifts</Link>
+          <Link href="/shifts/volunteer-check-in" className="ml-6 text-base font-semibold text-[#B11218] hover:text-[#D11A22]">Volunteer Check-in</Link>
           <div className="flex flex-wrap gap-3">
             {!isCheckIn && <Link href="/shifts/new" className="rounded-lg bg-[#B11218] px-5 py-3 text-base font-bold text-white hover:bg-[#D11A22]">Add Shift</Link>}
             {!isCheckIn && <Link href="/admin/volunteer-roles" className="rounded-lg border border-[#B11218] px-5 py-3 text-base font-bold text-[#B11218] hover:bg-[#B11218] hover:text-white">Manage Roles</Link>}

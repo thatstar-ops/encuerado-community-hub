@@ -83,7 +83,7 @@ export default async function ShiftsPage({
     .filter((shift) => (shiftStatusFilter ? shift.status === shiftStatusFilter : true))
 
   const isCheckIn = admin.role === 'CHECK_IN'
-  const shiftDetailPath = (shiftId: string) => (isCheckIn ? `/shifts/${shiftId}/check-in` : `/shifts/${shiftId}/edit`)
+  const shiftDetailPath = (shiftId: string) => (isCheckIn ? `/shifts/volunteer-check-in?shift=${shiftId}` : `/shifts/${shiftId}/edit`)
 
   const filterQuery = (extra: Record<string, string>) => {
     const p = new URLSearchParams()
