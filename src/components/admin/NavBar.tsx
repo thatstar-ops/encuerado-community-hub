@@ -45,7 +45,6 @@ export default function NavBar({
   const checkInLinks = [
     { href: '/admin', label: 'Dashboard' },
     { href: '/event-check-in', label: 'Event Check-in' },
-    { href: '/shifts', label: 'Volunteer Shifts' },
     { href: '/shifts/volunteer-check-in', label: 'Volunteer Check-in' },
   ]
 

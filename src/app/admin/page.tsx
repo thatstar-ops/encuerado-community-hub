@@ -32,10 +32,10 @@ export default async function AdminDashboardPage() {
             </Link>
 
             <Link
-              href="/shifts"
+              href="/shifts/volunteer-check-in"
               className="rounded-2xl bg-[#B11218] p-8 text-2xl font-bold text-white hover:bg-[#D11A22]"
             >
-              Volunteer Shifts / Check-in
+              Volunteer Check-in
             </Link>
           </div>
 
